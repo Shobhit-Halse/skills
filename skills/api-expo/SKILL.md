@@ -1,5 +1,5 @@
 ---
-name: react-native-expo-api
+name: api-expo
 description: >
   Production-grade API integration for React Native and Expo apps. Use when
   writing, reviewing, or debugging network requests, API calls, data fetching,
