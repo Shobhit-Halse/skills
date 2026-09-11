@@ -1,22 +1,34 @@
 # Skills For Engineers
 
-[![skills.sh](https://skills.sh/b/Shobhit-Halse/skills)](https://skills.sh/Shobhit-Halse/skills)
+A curated collection of production-grade AI agent skills for software and mobile engineers.
 
-A curated collection of production-grade AI agent skills for mobile and software engineers.
+## Why Use This?
 
-Knowing how to properly architect networking, state management, auth, and offline resilience in modern apps is hard. AI agents frequently suggest naive implementations—like storing plain auth tokens in `AsyncStorage`, infinite-looping on HTTP 429 rate limits, or failing to handle network disconnects.
+AI coding assistants are fast at generating initial code, but they consistently fall short on production engineering:
 
-These skills encode battle-tested production patterns, security standards, and defensive engineering practices so your AI agents write code that survives real-world users and mobile networks.
+- **Insecure defaults & naive patterns**: Storing secrets or auth tokens in unencrypted storage, skipping idempotency on state-changing requests, and writing fragile abstractions.
+- **Missing real-world failure modes**: Failing to handle rate limits (HTTP 429), unhandled network drops, thread contention, and edge-case error recovery.
+- **Repetitive prompting fatigue**: Engineers spend valuable time repeatedly correcting agents on standard architectural boundaries and defensive coding requirements.
+
+### What This Solves
+
+This repository gives AI agents explicit, domain-specific engineering playbooks. When an agent works on a task backed by one of these skills, it adheres to:
+
+1. **Strict architectural boundaries**: Clean separation of UI, services, and transport layers.
+2. **Defensive defaults**: Automatic backoff with jitter, exact retry caps, proper cancellation, and secure storage.
+3. **Real-world reliability**: Code written to survive flaky connections, bad inputs, and production traffic from day one.
+
+---
 
 ## Install
 
-Add these skills to your project or agent environment:
+Add the skills to your project or agent environment:
 
 ```bash
 npx skills@latest add Shobhit-Halse/skills
 ```
 
-Or install an individual skill directly:
+Or install a specific skill directly:
 
 ```bash
 npx skills@latest add Shobhit-Halse/skills/skills/api-expo
@@ -24,19 +36,8 @@ npx skills@latest add Shobhit-Halse/skills/skills/api-expo
 
 ---
 
-## Skills Reference
+## Skills
 
-- **[api-expo](./skills/api-expo/SKILL.md)** — Production-grade API integration for React Native and Expo apps. Covers `expo/fetch`, secure token storage with `expo-secure-store`, TanStack Query v5 server state, rate-limiting & backoff with jitter, idempotency keys, request timeouts, and NetInfo offline management.
+- **[api-expo](./skills/api-expo/SKILL.md)** — Production-grade API integration for React Native and Expo apps. Covers `expo/fetch`, token storage with `expo-secure-store`, TanStack Query v5, rate limiting & backoff with jitter, idempotency keys, request timeouts, and NetInfo offline handling.
 
----
-
-## Upcoming Skills (Adding Soon)
-
-More high-impact skills are actively being written and refined:
-
-- **`auth-expo`** — Secure authentication flows, biometric auth (`expo-local-authentication`), session lifecycle, and OAuth/SSO handling.
-- **`offline-expo`** — Offline-first architecture, SQLite / WatermelonDB synchronization, mutation queues, and conflict resolution.
-- **`navigation-expo`** — Expo Router deep-linking, typed routes, modal stacks, and state restoration patterns.
-- **`perf-react-native`** — Memory leak prevention, FlashList optimization, Hermes memory profiling, and frame drop diagnosis.
-
-Stay tuned—more skills will be published regularly!
+*More skills will be added soon.*
