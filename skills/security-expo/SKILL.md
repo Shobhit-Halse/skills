@@ -211,7 +211,6 @@ function handleDeepLink(url: string) {
   // Now safe to navigate
 }
 ```
-````
 
 Rules:
 
@@ -553,4 +552,3 @@ If any of these are true, stop and fix before proceeding:
 ---
 
 _Every principle here is a shipping blocker. Every checklist item is verifiable. If any item cannot be checked, the release is not ready._
-
