@@ -15,7 +15,7 @@ description: >
 version: 1.1.0
 ---
 
-# Native Security (React Native + Expo)
+# Security Expo (React Native + Expo)
 
 ## Overview
 
