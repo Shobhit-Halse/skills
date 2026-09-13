@@ -1,6 +1,6 @@
 # Skills For Engineers
 
-A curated collection of production-grade AI agent skills for software and mobile engineers.
+A curated collection of production-grade AI agent skills for software and mobile engineers, published on [skills.sh](https://skills.sh).
 
 ## Why Use This?
 
@@ -22,16 +22,18 @@ This repository gives AI agents explicit, domain-specific engineering playbooks.
 
 ## Install
 
-Add the skills to your project or agent environment:
+Add all skills to your project or agent environment via [skills.sh](https://skills.sh):
 
 ```bash
 npx skills@latest add Shobhit-Halse/skills
 ```
 
-Or install a specific skill directly:
+Or install an individual skill directly:
 
 ```bash
 npx skills@latest add Shobhit-Halse/skills/skills/api-expo
+npx skills@latest add Shobhit-Halse/skills/skills/design-foundations
+npx skills@latest add Shobhit-Halse/skills/skills/security-expo
 ```
 
 ---
