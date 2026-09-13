@@ -1,5 +1,5 @@
 ---
-name: native-design-foundations
+name: design-foundations
 description: >
   Mobile design foundations for React Native and Expo apps. MUST be loaded when
   the task touches: typography scales, font sizing, line height, letter spacing,
