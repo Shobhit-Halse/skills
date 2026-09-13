@@ -40,5 +40,6 @@ npx skills@latest add Shobhit-Halse/skills/skills/api-expo
 
 - **[api-expo](./skills/api-expo/SKILL.md)** — Production-grade API integration for React Native and Expo apps. Covers `expo/fetch`, token storage with `expo-secure-store`, TanStack Query v5, rate limiting & backoff with jitter, idempotency keys, request timeouts, and NetInfo offline handling.
 - **[security-expo](./skills/security-expo/SKILL.md)** — Security and crash prevention for React Native and Expo apps. Covers token security, biometric auth, deep link & push notification validation, TLS/certificate pinning, WebView isolation, Hermes & R8 release hardening, and privacy checklists.
+- **[design-foundations](./skills/design-foundations/SKILL.md)** — Mobile design foundations for React Native and Expo apps. Covers typography scales (Dynamic Type/`sp`), 8pt grid & Gestalt proximity, 60-30-10 color systems, dark mode elevation, WCAG contrast, UX laws (Fitts, Hick, Miller), CTA hierarchy, and loading states.
 
 *More skills will be added soon.*
