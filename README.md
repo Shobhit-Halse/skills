@@ -46,5 +46,4 @@ npx skills@latest add Shobhit-Halse/skills/skills/web-performance
 - **[design-foundations](./skills/design-foundations/SKILL.md)** ([skills.sh](https://skills.sh/shobhit-halse/skills/design-foundations)) — Mobile design foundations for React Native and Expo apps. Covers typography scales (Dynamic Type/`sp`), 8pt grid & Gestalt proximity, 60-30-10 color systems, dark mode elevation, WCAG contrast, UX laws (Fitts, Hick, Miller), CTA hierarchy, and loading states.
 - **[web-performance](./skills/web-performance/SKILL.md)** ([skills.sh](https://skills.sh/shobhit-halse/skills/web-performance)) — Production web performance for React and modern browsers. Covers Core Web Vitals (LCP, INP, CLS), bundle optimization, font self-hosting, AVIF/WebP image strategies, critical CSS, resource hints, and edge caching.
 
-*More skills will be added soon.*
-
+_More skills will be added soon._
