@@ -283,7 +283,7 @@ Always use `<picture>` with `<source type="...">` for format fallback. Never put
     sizes="(max-width: 600px) 100vw, (max-width: 1200px) 800px, 1200px"
   />
   <img
-    src="/hero-800.webp"
+    src="/hero-800.jpg"
     width="1200"
     height="675"
     loading="eager"
@@ -298,7 +298,7 @@ Always use `<picture>` with `<source type="...">` for format fallback. Never put
 
 - `loading="eager"` — do not lazy-load the LCP element.
 - `fetchpriority="high"` — tell the browser this is the most important resource.
-- Preload it in `<head>` if the URL is known at build time.
+- Preload it in `<head>` if the URL is known at build time: when using `<picture>`, use a format-aware preload matching the preferred candidate (`<link rel="preload" as="image" type="image/avif" imagesrcset="/hero-400.avif 400w, /hero-800.avif 800w, /hero-1200.avif 1200w" imagesizes="(max-width: 600px) 100vw, (max-width: 1200px) 800px, 1200px" fetchpriority="high" />`). Never preload a generic fallback URL (such as `/hero-800.jpg` or `/hero-800.webp`), as browsers will fetch both the preloaded resource and the format-matched `<source>`, doubling bandwidth consumption.
 - Always set `width` and `height` to prevent CLS.
 
 **Everything below the fold:**
@@ -466,8 +466,8 @@ workbox.routing.registerRoute(
 1. **Break long tasks.** Yield to the main thread between chunks of work using a cross-browser helper. Do not call raw `scheduler.yield()` unconditionally — it throws a `ReferenceError` on Safari and Firefox.
    ```js
    const yieldToMain = () => {
-     if (typeof window !== "undefined" && "scheduler" in window && "yield" in (window as any).scheduler) {
-       return (window as any).scheduler.yield();
+     if (typeof window !== "undefined" && window.scheduler && typeof window.scheduler.yield === "function") {
+       return window.scheduler.yield();
      }
      return new Promise((resolve) => setTimeout(resolve, 0));
    };
@@ -475,7 +475,7 @@ workbox.routing.registerRoute(
    async function processLargeList(items) {
      for (let i = 0; i < items.length; i++) {
        processItem(items[i]);
-       if (i % 50 === 0) await yieldToMain(); // yield every 50 items
+       if ((i + 1) % 50 === 0) await yieldToMain(); // yield after each batch of 50 items
      }
    }
    ```
@@ -489,8 +489,8 @@ workbox.routing.registerRoute(
 
 **React Server Components (RSC) and Streaming SSR:**
 
-- **Zero-bundle components:** Server Components execute entirely on the server and emit serialized Virtual DOM (the RSC payload). They ship 0KB of JavaScript to the browser. Heavy dependencies (Markdown renderers, syntax highlighters, date libraries) should never reach the client bundle.
-- **Streaming HTML with `<Suspense>`:** Break the page into independent streaming boundaries. The server sends the initial HTML shell immediately (achieving sub-200ms TTFB), while slow data fetches stream in asynchronously without blocking the initial paint or hydration of interactive islands.
+- **Zero-bundle components:** In an RSC-capable framework or bundler (e.g. Next.js App Router, Waku, Remix/React Router with RSC), Server Components execute entirely on the server and emit serialized Virtual DOM (the RSC payload). They exclude their own component implementation and server-only dependencies (such as Markdown parsers, syntax highlighters, or date utilities) from the client bundle. Note that Client Components (`'use client'`) and their transitive imports still ship to the browser.
+- **Streaming HTML with `<Suspense>`:** Break the page into independent streaming boundaries. The server sends the initial HTML shell immediately (targeting a sub-200ms TTFB budget), while slow data fetches stream in asynchronously as HTML chunks, displaying fallbacks without blocking the initial document paint. Interactive islands can begin hydrating their respective boundaries as chunks arrive, without waiting for the full page's data to resolve.
 
 ```tsx
 // app/page.tsx
@@ -508,15 +508,15 @@ export default function Page() {
 
 **React Compiler (React 19+):**
 
-- **Automatic memoization:** React Compiler automatically memoizes component outputs and values at build time. Manual `useMemo`, `useCallback`, and `React.memo` are redundant in compiled codebases.
+- **Automatic memoization:** In build configurations where the React Compiler is explicitly enabled and active, the compiler automatically memoizes component outputs and values at build time. Manual `useMemo`, `useCallback`, and `React.memo` should only be removed after confirming the compiler is enabled in the build pipeline; otherwise, retain manual memoization where needed for expensive computations or referential stability of props.
 - **Compiler compliance rules:**
   1. Never mutate existing objects or arrays in render (e.g. `items.push(...)`).
   2. Maintain stable object shapes; do not dynamically attach properties.
   3. Keep render functions pure and free of side effects.
 
-**Speculation Rules API (Near-Instant 0ms Navigations):**
+**Speculation Rules API (Near-Instant Document Navigations):**
 
-Replace heavy client-side JavaScript prefetching libraries with browser-native speculative prerendering:
+For full-document navigations, replace heavy client-side JavaScript prefetching libraries with browser-native speculative prerendering (note: soft SPA client-side route transitions and data cache prefetching via TanStack Query remain handled in application JavaScript):
 
 ```html
 <script type="speculationrules">
@@ -531,7 +531,14 @@ Replace heavy client-side JavaScript prefetching libraries with browser-native s
   "prefetch": [
     {
       "source": "document",
-      "where": { "and": [{ "href_matches": "/*" }] },
+      "where": {
+        "and": [
+          { "href_matches": "/*" },
+          { "not": { "href_matches": "/logout" } },
+          { "not": { "href_matches": "/api/*" } },
+          { "not": { "href_matches": "/auth/*" } }
+        ]
+      },
       "eagerness": "conservative"
     }
   ]
@@ -540,7 +547,8 @@ Replace heavy client-side JavaScript prefetching libraries with browser-native s
 ```
 
 - Supported across Chromium browsers (Chrome, Edge) with automatic fallback.
-- Prerenders high-probability next pages in a hidden background tab, making page transitions feel instantaneous without consuming mobile battery during initial load.
+- Constrain prefetch and prerender rules to explicitly safe, idempotent destinations: always exclude state-changing or mutating endpoints (such as `/logout`, cart actions, or authenticated mutators).
+- Prerendering initiates a background rendering process for high-probability next pages subject to browser resource management (respecting device memory, Data Saver, and battery conditions), delivering near-instant transitions when activated.
 
 ---
 
@@ -659,10 +667,10 @@ Replace heavy client-side JavaScript prefetching libraries with browser-native s
 
 **Modern Architecture (2026)**
 
-- [ ] Zero-bundle React Server Components used for static and data-fetching views
-- [ ] Independent `<Suspense>` streaming boundaries implemented for sub-200ms TTFB
-- [ ] Codebase conforms to React Compiler rules (pure renders, immutable state)
-- [ ] Speculation Rules API configured for native 0ms background prerendering
+- [ ] Zero-bundle React Server Components used for static and data-fetching views in RSC-capable frameworks
+- [ ] Independent `<Suspense>` streaming boundaries implemented targeting sub-200ms TTFB
+- [ ] Codebase conforms to React Compiler rules (manual memoization retained unless compiler is confirmed active)
+- [ ] Speculation Rules API configured for safe, idempotent document prerendering and prefetching
 
 **Budgets and enforcement**
 

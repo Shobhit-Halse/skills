@@ -133,43 +133,6 @@ interface RequestOptions extends RequestInit {
   _isRetry?: boolean;
 }
 
-// Refresh mutex singleton: serializes parallel 401 responses to avoid token reuse detection
-let refreshPromise: Promise<string | null> | null = null;
-
-async function getRefreshedToken(): Promise<string | null> {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      try {
-        const refreshToken = await secureStorage.getRefreshToken();
-        if (!refreshToken) return null;
-
-        const res = await fetch(`${BASE_URL}/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-
-        if (!res.ok) {
-          await secureStorage.clearAll();
-          return null;
-        }
-
-        const data = (await res.json()) as { accessToken: string; refreshToken?: string };
-        await secureStorage.saveAccessToken(data.accessToken);
-        if (data.refreshToken) {
-          await secureStorage.saveRefreshToken(data.refreshToken);
-        }
-        return data.accessToken;
-      } catch {
-        return null;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
-  }
-  return refreshPromise;
-}
-
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -186,6 +149,55 @@ async function fetchWithTimeout(
     clearTimeout(timer);
     externalSignal?.removeEventListener("abort", onExternalAbort);
   }
+}
+
+// Refresh mutex singleton: serializes parallel 401 responses to avoid token reuse detection
+let refreshPromise: Promise<string | null> | null = null;
+
+async function getRefreshedToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshToken = await secureStorage.getRefreshToken();
+        if (!refreshToken) return null;
+
+        // Reuse fetchWithTimeout so stalled refresh requests terminate properly
+        const res = await fetchWithTimeout(
+          `${BASE_URL}/auth/refresh`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refreshToken }),
+          },
+          DEFAULT_TIMEOUT,
+        );
+
+        // Only clear storage on definite auth rejection (400 or 401)
+        if (res.status === 400 || res.status === 401) {
+          await secureStorage.clearAll();
+          return null;
+        }
+
+        if (!res.ok) {
+          // Transient failure (429, 500, 502, 503): throw retryable error; do not clear credentials
+          throw new ApiError(`Token refresh failed: ${res.status}`, res.status, true);
+        }
+
+        const data = (await res.json()) as { accessToken: string; refreshToken?: string };
+        await secureStorage.saveAccessToken(data.accessToken);
+        if (data.refreshToken) {
+          await secureStorage.saveRefreshToken(data.refreshToken);
+        }
+        return data.accessToken;
+      } catch (err) {
+        if (err instanceof ApiError && err.isRetryable) throw err;
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
 }
 
 function calculateBackoff(attempt: number): number {
@@ -206,6 +218,10 @@ export async function apiRequest<T>(
   const token = await secureStorage.getAccessToken();
   const headers = new Headers(options.headers);
 
+  // Preserve caller-supplied Authorization header if explicitly provided
+  const callerAuth = options.headers ? new Headers(options.headers).get("Authorization") : null;
+  const hasCallerAuth = typeof callerAuth === "string" && callerAuth.trim().length > 0;
+
   // CRITICAL: Do NOT set application/json for FormData (breaks multipart boundary generation)
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   if (!isFormData && !headers.has("Content-Type")) {
@@ -215,11 +231,13 @@ export async function apiRequest<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  // Idempotency guard: never auto-retry non-idempotent mutations without an explicit key
+  // Idempotency guard: require non-whitespace content in Idempotency-Key
   const method = (options.method ?? "GET").toUpperCase();
+  const idempotencyKey = headers.get("Idempotency-Key");
+  const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0;
   const isIdempotent =
     ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"].includes(method) ||
-    headers.has("Idempotency-Key");
+    hasIdempotencyKey;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
@@ -231,18 +249,31 @@ export async function apiRequest<T>(
 
       // 401 Unauthorized: Trigger singleton refresh mutex and retry once
       if (res.status === 401 && !options._isRetry) {
-        const newToken = await getRefreshedToken();
-        if (newToken) {
-          const retryHeaders = new Headers(options.headers);
-          retryHeaders.set("Authorization", `Bearer ${newToken}`);
-          return apiRequest<T>(
-            endpoint,
-            { ...options, headers: retryHeaders, _isRetry: true },
-            customTimeout,
-            externalSignal,
-          );
+        // If caller supplied their own custom Authorization header, do not overwrite it with session token
+        if (hasCallerAuth) {
+          throw new ApiError("Unauthorized", 401, false);
         }
-        throw new ApiError("Session expired", 401, false);
+
+        try {
+          const newToken = await getRefreshedToken();
+          if (newToken) {
+            // Copy computed headers object to preserve Content-Type and custom headers
+            const retryHeaders = new Headers(headers);
+            retryHeaders.set("Authorization", `Bearer ${newToken}`);
+            return apiRequest<T>(
+              endpoint,
+              { ...options, headers: retryHeaders, _isRetry: true },
+              customTimeout,
+              externalSignal,
+            );
+          }
+          throw new ApiError("Session expired", 401, false);
+        } catch (refreshErr) {
+          if (refreshErr instanceof ApiError && refreshErr.isRetryable) {
+            throw refreshErr;
+          }
+          throw new ApiError("Session expired", 401, false);
+        }
       }
 
       if (res.status === 429) {
@@ -571,8 +602,8 @@ onlineManager.setEventListener((setOnline) =>
 
 **Retries**
 
-- [ ] Only 429 and idempotent 5xx/timeouts retried
-- [ ] Non-idempotent mutations (`POST`) require an `Idempotency-Key` header before any retry
+- [ ] Only 429 and idempotent 5xx/timeouts/network resets retried
+- [ ] Non-idempotent mutations (`POST` and `PATCH`) require a non-empty `Idempotency-Key` header before any retry
 - [ ] 4xx (except 429) never retried
 - [ ] TanStack Query configured with `retry: false` to avoid retry storm multiplication with transport
 

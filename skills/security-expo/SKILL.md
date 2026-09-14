@@ -179,7 +179,7 @@ Concrete techniques for executing each principle.
 - On logout: clear SecureStore, clear any in-memory token, and call the server's revocation endpoint so the refresh token cannot be reused.
 - For sensitive actions (payment, identity change, health data access), require biometric step-up:
   - **UI-only vs hardware-backed authentication:** `expo-local-authentication` (`authenticateAsync`) only confirms that the current user passed the local prompt. It does **not** protect against an attacker who knows the device passcode and enrolls their own face/fingerprint in device settings.
-  - **Hardware biometric key invalidation:** For cryptographic signing or accessing high-value tokens, bind the key in the iOS Keychain with `kSecAccessControlBiometryCurrentSet` (or Android Keystore with `setUserAuthenticationRequired(true)` and invalidation on new biometric enrollment). When a new biometric identity is enrolled at the OS level, the operating system hardware permanently invalidates the key.
+  - **Hardware biometric key invalidation:** For cryptographic signing or accessing high-value tokens, iOS signing keys must use Secure Enclave hardware binding via `kSecAttrTokenIDSecureEnclave` alongside `kSecAccessControlBiometryCurrentSet`. Android keys must use explicit biometric-only, per-use authentication with `setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)`, `setInvalidatedByBiometricEnrollment(true)`, and verification of the required hardware security level (StrongBox or TEE); do not treat `setUserAuthenticationRequired(true)` alone as sufficient. When a new biometric identity is enrolled at the OS level, the operating system hardware permanently invalidates the key.
 
 ### Secrets (Principle 4)
 
@@ -218,7 +218,7 @@ Rules:
 
 - Allowlist route names. Never `navigate(path)` with a value from the URL.
 - Regex-validate every param for type, length, and character class.
-- **Anti-replay nonces and timestamps:** Any deep link triggering state changes (magic links, auth callbacks, invite redemption) must carry a single-use cryptographically random nonce (`state`) and a Unix expiration timestamp (`exp`). The backend must validate the signature/nonce and revoke it immediately upon first receipt to prevent replay attacks from system logs or clipboard snooping.
+- **Anti-replay nonces and timestamps:** Any deep link triggering state changes (magic links, auth callbacks, invite redemption) must carry a single-use cryptographically random nonce (`state`) and a Unix expiration timestamp (`exp`). The backend must bind `state` to the initiating authorization or app transaction (validating the intended action, account, and redirect target) and revoke it immediately upon first receipt to prevent replay attacks from system logs or clipboard snooping. For OAuth flows, validated PKCE serves as the primary authorization code defense; require equivalent transaction binding for magic-link and invite flows.
 - Never pass a deep-link param into a native module without the same validation on the native side.
 
 ### Push notification privacy and silent push
@@ -226,7 +226,7 @@ Rules:
 Visual push notifications (APNs / FCM alerts) are displayed on locked device screens and cached unencrypted in OS notification logs.
 
 - **Never include raw PII, auth tokens, or sensitive account data in visual notification payloads** (e.g. "Your new password is X" or "Wire transfer of $50,000 to Account #12345").
-- **Use Silent Push Notifications** (`content-available: 1` on iOS, `data-only` messages on Android) to awaken the app in the background. The app then fetches the authenticated, encrypted payload securely over TLS from your API.
+- **Silent push as best-effort wake-up:** Treat silent push (`content-available: 1` on iOS, `data-only` messages on Android) strictly as a best-effort wake-up hint, not the sole delivery path for sensitive events. APNs and FCM throttle or drop background wakeups under battery saving, low power mode, or system resource constraints. Require server-side event persistence and foreground reconciliation on app resume. When user notification is necessary, display a generic visible alert (e.g. "You have a new secure update") that directs the user to open the app.
 - **iOS Notification Service Extensions:** If a notification banner must display customized information, use a Notification Service Extension to perform on-device decryption or redaction before the notification banner renders.
 - Treat `notification.data` as attacker-controlled input: validate and sanitize all payload fields before routing or executing actions.
 
@@ -499,9 +499,9 @@ If any of these are true, stop and fix before proceeding:
 
 - [ ] All server endpoints validate with a runtime schema library — not just TypeScript types
 - [ ] Deep links validated against a route allowlist with regex-validated params
-- [ ] Deep links triggering state or auth transitions use single-use nonces and short expiration timestamps
+- [ ] Deep links triggering state or auth transitions define a maximum TTL, validate `exp` against server time (rejecting expired values), and consume single-use nonces bound to the transaction
 - [ ] Push notification payloads treated as untrusted input and strictly schema-validated
-- [ ] Visual push alerts contain no raw PII; sensitive events use silent push (`content-available`) with TLS fetch
+- [ ] Push notifications: all payloads (including silent and data-only APNs/FCM) prohibit raw PII, containing only opaque event identifiers and non-sensitive metadata with sensitive records fetched over authenticated TLS
 - [ ] WebViews have a strict `originWhitelist`, no user content in `injectedJavaScript`, and `onShouldStartLoadWithRequest` guarding navigation
 - [ ] Clipboard and QR data validated before use
 
