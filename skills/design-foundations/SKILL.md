@@ -14,7 +14,7 @@ description: >
   (touch targets, bottom sheets, thumb-zone CTAs, loading states — React Native /
   Expo). Not for accessibility prop implementation (separate a11y skill). Not
   for web-only patterns (hover, cursor, scroll-jacking). Version 1.0.1.
-version: 1.0.1
+version: 1.1.0
 ---
 
 # Native Design Foundations (React Native + Expo)
@@ -164,6 +164,7 @@ The Material 3 scale is expressed in design-spec units (`sp`) at the platform le
 **Typography rules:**
 
 - **Use numeric `fontSize` values, not string units.** React Native's `fontSize` prop takes a number (e.g., `fontSize: 16`); strings like `"16sp"` or `"16dp"` are invalid. Text scaling is handled by `allowFontScaling` (default `true`, so text respects the user's OS-level font-size preference) and capped via `maxFontSizeMultiplier` (e.g., `1.5`) to prevent layouts from breaking at extreme scale factors. iOS Dynamic Type settings are forwarded to React Native automatically — do not hardcode point sizes.
+- **Container elasticity (no fixed heights on text containers):** Never set hardcoded fixed `height` (e.g. `height: 48`) on cards, buttons, or list items containing text. Use `minHeight` and flexible vertical padding. When OS-level Dynamic Type scales up (especially at 200%), fixed-height containers cause severe text truncation.
 - **Test at 200% font scaling.** Layouts that break need flexible containers, not fixed heights.
 - **Large headers (>70px):** tighten letter spacing −2% to −3%, set line height to 110–120%. Large type at default tracking looks amateur.
 - **Max 6 font sizes** on marketing screens. Dashboards cap primary body at 16 for information density; supporting roles (14, 12) are allowed for metadata.
@@ -204,6 +205,7 @@ Think of it as 1× → 2× → 4×. This creates clear visual boundaries.
 - **Screen edge padding: 16px minimum, 20–24px preferred.** Text touching the edge reads as broken.
 - **Section spacing: 24px or 32px.** Below 24px, sections blur together.
 - **Space within groups < space between groups.** This is the proximity principle in practice.
+- **Bi-directional layouts (RTL support):** Never hardcode physical layout directions (`marginLeft`, `marginRight`, `left`, `right`). Use logical properties (`marginStart`, `marginEnd`, `paddingStart`, `paddingEnd`). This ensures layouts automatically mirror cleanly in Right-To-Left locales (Arabic, Hebrew, Urdu) without manual conditional overrides.
 - **Never use a spacing value that is not a multiple of 4.** 13px, 17px, 23px are drift.
 - **Set the design tool's nudge to 8px** so drift is impossible during handoff.
 - **Use design tokens, never hardcode pixels.** Reference `space.sm`, `space.lg`, etc.
@@ -218,10 +220,12 @@ Think of it as 1× → 2× → 4×. This creates clear visual boundaries.
 
 **Practical tip:** Start with too much space, then take it away until it stops looking cramped. Easier to reduce than to guess from the start.
 
-**Platform spacing:**
+**Platform spacing and keyboard insets:**
 
 - **iOS:** Use `useSafeAreaInsets()` for notch and Dynamic Island. Defer to platform defaults where possible.
 - **Android:** Material baseline grid. 8dp grid, 4dp sub-grid for fine adjustments.
+- **Keyboard avoidance without double-padding:** Built-in `KeyboardAvoidingView` causes jitter and layout jumps across OS versions. Prefer `react-native-keyboard-controller` for interactive, 60fps keyboard tracking. When calculating bottom padding, ensure the keyboard height replaces — rather than adds to — `useSafeAreaInsets().bottom`.
+- **Keyboard tap persistence:** Set `keyboardShouldPersistTaps="handled"` on all `ScrollView` and `FlatList` containers so button presses and input selections register on the first touch without requiring an extra tap to dismiss the keyboard.
 
 ### Color — Systematic Approach
 
@@ -480,6 +484,7 @@ If any of these are true, stop and fix before proceeding:
 - [ ] Primary body text ≥ 16px (iOS 17pt, Android 16); supporting roles (iOS Footnote 13pt, Android Body Medium 14 / Body Small 12) used only for metadata, dense layouts, and secondary information
 - [ ] Numeric `fontSize` values used — no string units like `"16sp"` or `"16dp"`
 - [ ] `allowFontScaling` enabled and `maxFontSizeMultiplier` set to prevent extreme scaling break
+- [ ] Elastic containers used (`minHeight` and flexible vertical padding instead of fixed `height` on text containers)
 - [ ] Tested at 200% font scaling without layout break
 - [ ] ≤ 6 font sizes on the screen
 - [ ] Large headers have tightened letter spacing (−2% to −3%) and 110–120% line height
@@ -497,6 +502,9 @@ If any of these are true, stop and fix before proceeding:
 - [ ] Section spacing ≥ 24px
 - [ ] Maximum 3 spacing levels
 - [ ] Design tool nudge set to 8px
+- [ ] Logical layout properties used for bi-directional RTL support (`marginStart`, `marginEnd`, `paddingStart`, `paddingEnd`)
+- [ ] Software keyboard avoidance handles insets without double-padding bottom safe area
+- [ ] `keyboardShouldPersistTaps="handled"` configured on all scroll containers
 
 **Color**
 

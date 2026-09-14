@@ -13,7 +13,7 @@ description: >
   principles (Core Web Vitals, budgets, caching, fonts, images, delivery). Not
   for component-level UI polish (separate web-polish skill). Not for backend API
   design. Version 1.0.0.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Web Performance (React + Modern Browsers)
@@ -266,19 +266,32 @@ For EU-facing sites, self-hosting is effectively mandatory: a German court ruled
 
 AVIF is 20–30% smaller than WebP for photographic content and 30–50% smaller than equivalent-quality JPEG. Browser support is ~93–94% in 2026, rising. WebP is the safe universal fallback at ~97% support.
 
-**Responsive images:**
+**Responsive multi-format picture element:**
+
+Always use `<picture>` with `<source type="...">` for format fallback. Never put AVIF files in `srcset` on an `<img>` tag with a WebP `src` — browsers supporting `srcset` will ignore `src` and fail if they lack AVIF support.
 
 ```html
-<img
-  src="/hero-800.webp"
-  srcset="/hero-400.avif 400w, /hero-800.avif 800w, /hero-1200.avif 1200w"
-  sizes="(max-width: 600px) 400px, (max-width: 1200px) 800px, 1200px"
-  width="1200"
-  height="675"
-  loading="eager"
-  fetchpriority="high"
-  alt="Hero"
-/>
+<picture>
+  <source
+    type="image/avif"
+    srcset="/hero-400.avif 400w, /hero-800.avif 800w, /hero-1200.avif 1200w"
+    sizes="(max-width: 600px) 100vw, (max-width: 1200px) 800px, 1200px"
+  />
+  <source
+    type="image/webp"
+    srcset="/hero-400.webp 400w, /hero-800.webp 800w, /hero-1200.webp 1200w"
+    sizes="(max-width: 600px) 100vw, (max-width: 1200px) 800px, 1200px"
+  />
+  <img
+    src="/hero-800.webp"
+    width="1200"
+    height="675"
+    loading="eager"
+    fetchpriority="high"
+    decoding="async"
+    alt="Hero"
+  />
+</picture>
 ```
 
 **LCP image rules:**
@@ -450,12 +463,19 @@ workbox.routing.registerRoute(
 
 **The fixes, in order:**
 
-1. **Break long tasks.** Use `scheduler.yield()` (Chrome 129+) or `setTimeout(fn, 0)` to yield to the main thread between chunks of work. The browser can then paint the next frame before continuing.
+1. **Break long tasks.** Yield to the main thread between chunks of work using a cross-browser helper. Do not call raw `scheduler.yield()` unconditionally — it throws a `ReferenceError` on Safari and Firefox.
    ```js
+   const yieldToMain = () => {
+     if (typeof window !== "undefined" && "scheduler" in window && "yield" in (window as any).scheduler) {
+       return (window as any).scheduler.yield();
+     }
+     return new Promise((resolve) => setTimeout(resolve, 0));
+   };
+
    async function processLargeList(items) {
      for (let i = 0; i < items.length; i++) {
        processItem(items[i]);
-       if (i % 50 === 0) await scheduler.yield(); // yield every 50 items
+       if (i % 50 === 0) await yieldToMain(); // yield every 50 items
      }
    }
    ```
@@ -464,6 +484,63 @@ workbox.routing.registerRoute(
 4. **Avoid layout thrashing.** Read DOM properties first, then write. Do not interleave reads and writes in a loop.
 5. **Offload heavy work to a Web Worker.** Parsing, sorting, and heavy computation can run off the main thread entirely.
 6. **Defer non-critical JavaScript.** Analytics, chat widgets, A/B testing scripts, and social embeds should load after the page is interactive, not during.
+
+### Modern Architecture: RSC, React Compiler & Speculation Rules (2026)
+
+**React Server Components (RSC) and Streaming SSR:**
+
+- **Zero-bundle components:** Server Components execute entirely on the server and emit serialized Virtual DOM (the RSC payload). They ship 0KB of JavaScript to the browser. Heavy dependencies (Markdown renderers, syntax highlighters, date libraries) should never reach the client bundle.
+- **Streaming HTML with `<Suspense>`:** Break the page into independent streaming boundaries. The server sends the initial HTML shell immediately (achieving sub-200ms TTFB), while slow data fetches stream in asynchronously without blocking the initial paint or hydration of interactive islands.
+
+```tsx
+// app/page.tsx
+export default function Page() {
+  return (
+    <main>
+      <Header /> {/* 0KB Client JS */}
+      <Suspense fallback={<ProductSkeleton />}>
+        <ProductDetails /> {/* Streams in when database query resolves */}
+      </Suspense>
+    </main>
+  );
+}
+```
+
+**React Compiler (React 19+):**
+
+- **Automatic memoization:** React Compiler automatically memoizes component outputs and values at build time. Manual `useMemo`, `useCallback`, and `React.memo` are redundant in compiled codebases.
+- **Compiler compliance rules:**
+  1. Never mutate existing objects or arrays in render (e.g. `items.push(...)`).
+  2. Maintain stable object shapes; do not dynamically attach properties.
+  3. Keep render functions pure and free of side effects.
+
+**Speculation Rules API (Near-Instant 0ms Navigations):**
+
+Replace heavy client-side JavaScript prefetching libraries with browser-native speculative prerendering:
+
+```html
+<script type="speculationrules">
+{
+  "prerender": [
+    {
+      "source": "list",
+      "urls": ["/dashboard", "/settings"],
+      "eagerness": "moderate"
+    }
+  ],
+  "prefetch": [
+    {
+      "source": "document",
+      "where": { "and": [{ "href_matches": "/*" }] },
+      "eagerness": "conservative"
+    }
+  ]
+}
+</script>
+```
+
+- Supported across Chromium browsers (Chrome, Edge) with automatic fallback.
+- Prerenders high-probability next pages in a hidden background tab, making page transitions feel instantaneous without consuming mobile battery during initial load.
 
 ---
 
@@ -539,10 +616,10 @@ workbox.routing.registerRoute(
 
 **Images**
 
-- [ ] AVIF with WebP fallback for photographic content
-- [ ] `srcset` and `sizes` on responsive images
-- [ ] `width` and `height` on all images (CLS)
-- [ ] LCP image: `loading="eager"`, `fetchpriority="high"`
+- [ ] `<picture>` element with `<source type="...">` used for multi-format fallback (AVIF → WebP → fallback)
+- [ ] `srcset` and `sizes` declared on responsive sources
+- [ ] `width` and `height` on all images to prevent CLS
+- [ ] LCP image: `loading="eager"`, `fetchpriority="high"`, `decoding="async"`
 - [ ] Below-fold images: `loading="lazy"`
 - [ ] CDN image transformation configured
 
@@ -573,12 +650,19 @@ workbox.routing.registerRoute(
 **INP**
 
 - [ ] No task over 50ms in event handlers
-- [ ] Long tasks broken with `scheduler.yield()` or `setTimeout`
+- [ ] Long tasks broken with cross-browser `yieldToMain()` helper
 - [ ] Input handlers debounced (150–300ms)
 - [ ] `startTransition` used for non-urgent updates
 - [ ] No layout thrashing (read then write, not interleaved)
 - [ ] Heavy work offloaded to Web Workers
 - [ ] Non-critical JS deferred until after interactive
+
+**Modern Architecture (2026)**
+
+- [ ] Zero-bundle React Server Components used for static and data-fetching views
+- [ ] Independent `<Suspense>` streaming boundaries implemented for sub-200ms TTFB
+- [ ] Codebase conforms to React Compiler rules (pure renders, immutable state)
+- [ ] Speculation Rules API configured for native 0ms background prerendering
 
 **Budgets and enforcement**
 

@@ -12,7 +12,7 @@ description: >
   storage, or auth. This skill exists because mobile clients are untrusted
   devices and the backend is the only trust boundary — do not skip loading it
   because the task "looks small". Version 1.1.0.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Security Expo (React Native + Expo)
@@ -177,7 +177,9 @@ Concrete techniques for executing each principle.
 - On the server, validate the JWT signature, `iss`, `aud`, `exp`, and `nbf` on every request. Never trust the payload without verifying the signature.
 - Never put PII, passwords, PINs, or card numbers in a JWT payload — it is base64url-encoded, not encrypted.
 - On logout: clear SecureStore, clear any in-memory token, and call the server's revocation endpoint so the refresh token cannot be reused.
-- For sensitive actions (payment, identity change, health data access), require biometric step-up via `expo-local-authentication` with `SecurityLevel.BIOMETRIC_STRONG`.
+- For sensitive actions (payment, identity change, health data access), require biometric step-up:
+  - **UI-only vs hardware-backed authentication:** `expo-local-authentication` (`authenticateAsync`) only confirms that the current user passed the local prompt. It does **not** protect against an attacker who knows the device passcode and enrolls their own face/fingerprint in device settings.
+  - **Hardware biometric key invalidation:** For cryptographic signing or accessing high-value tokens, bind the key in the iOS Keychain with `kSecAccessControlBiometryCurrentSet` (or Android Keystore with `setUserAuthenticationRequired(true)` and invalidation on new biometric enrollment). When a new biometric identity is enrolled at the OS level, the operating system hardware permanently invalidates the key.
 
 ### Secrets (Principle 4)
 
@@ -216,8 +218,17 @@ Rules:
 
 - Allowlist route names. Never `navigate(path)` with a value from the URL.
 - Regex-validate every param for type, length, and character class.
+- **Anti-replay nonces and timestamps:** Any deep link triggering state changes (magic links, auth callbacks, invite redemption) must carry a single-use cryptographically random nonce (`state`) and a Unix expiration timestamp (`exp`). The backend must validate the signature/nonce and revoke it immediately upon first receipt to prevent replay attacks from system logs or clipboard snooping.
 - Never pass a deep-link param into a native module without the same validation on the native side.
-- Push notification payloads follow the same rule: treat `data` as attacker-controlled.
+
+### Push notification privacy and silent push
+
+Visual push notifications (APNs / FCM alerts) are displayed on locked device screens and cached unencrypted in OS notification logs.
+
+- **Never include raw PII, auth tokens, or sensitive account data in visual notification payloads** (e.g. "Your new password is X" or "Wire transfer of $50,000 to Account #12345").
+- **Use Silent Push Notifications** (`content-available: 1` on iOS, `data-only` messages on Android) to awaken the app in the background. The app then fetches the authenticated, encrypted payload securely over TLS from your API.
+- **iOS Notification Service Extensions:** If a notification banner must display customized information, use a Notification Service Extension to perform on-device decryption or redaction before the notification banner renders.
+- Treat `notification.data` as attacker-controlled input: validate and sanitize all payload fields before routing or executing actions.
 
 WebView — every prop is a potential XSS vector:
 
@@ -476,6 +487,7 @@ If any of these are true, stop and fix before proceeding:
 - [ ] No PII in JWT payloads
 - [ ] OAuth flows use PKCE
 - [ ] Biometric step-up required for payment, identity, and health-data actions
+- [ ] High-value biometric keys bound to hardware keystore with automatic invalidation on enrollment change (`BIOMETRY_CURRENT_SET`)
 
 **Storage**
 
@@ -487,7 +499,9 @@ If any of these are true, stop and fix before proceeding:
 
 - [ ] All server endpoints validate with a runtime schema library — not just TypeScript types
 - [ ] Deep links validated against a route allowlist with regex-validated params
-- [ ] Push notification payloads treated as untrusted and validated
+- [ ] Deep links triggering state or auth transitions use single-use nonces and short expiration timestamps
+- [ ] Push notification payloads treated as untrusted input and strictly schema-validated
+- [ ] Visual push alerts contain no raw PII; sensitive events use silent push (`content-available`) with TLS fetch
 - [ ] WebViews have a strict `originWhitelist`, no user content in `injectedJavaScript`, and `onShouldStartLoadWithRequest` guarding navigation
 - [ ] Clipboard and QR data validated before use
 

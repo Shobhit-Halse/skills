@@ -7,7 +7,7 @@ description: >
   error handling. Covers expo/fetch, expo-secure-store, TanStack Query v5,
   NetInfo, exponential backoff with jitter, idempotency keys, and exact retry
   counts. Activate for any React Native / Expo code touching an HTTP API.
-version: 1.0.1
+version: 1.1.0
 ---
 
 # Native API Integration (React Native + Expo)
@@ -129,6 +129,47 @@ export class ApiError extends Error {
   }
 }
 
+interface RequestOptions extends RequestInit {
+  _isRetry?: boolean;
+}
+
+// Refresh mutex singleton: serializes parallel 401 responses to avoid token reuse detection
+let refreshPromise: Promise<string | null> | null = null;
+
+async function getRefreshedToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshToken = await secureStorage.getRefreshToken();
+        if (!refreshToken) return null;
+
+        const res = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!res.ok) {
+          await secureStorage.clearAll();
+          return null;
+        }
+
+        const data = (await res.json()) as { accessToken: string; refreshToken?: string };
+        await secureStorage.saveAccessToken(data.accessToken);
+        if (data.refreshToken) {
+          await secureStorage.saveRefreshToken(data.refreshToken);
+        }
+        return data.accessToken;
+      } catch {
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -138,12 +179,12 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const onExternalAbort = () => controller.abort();
-  externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
-    externalSignal?.removeEventListener('abort', onExternalAbort);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }
 
@@ -154,7 +195,7 @@ function calculateBackoff(attempt: number): number {
 
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestOptions = {},
   customTimeout?: number,
   externalSignal?: AbortSignal,
 ): Promise<T> {
@@ -164,8 +205,21 @@ export async function apiRequest<T>(
 
   const token = await secureStorage.getAccessToken();
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  // CRITICAL: Do NOT set application/json for FormData (breaks multipart boundary generation)
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (!isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  // Idempotency guard: never auto-retry non-idempotent mutations without an explicit key
+  const method = (options.method ?? "GET").toUpperCase();
+  const isIdempotent =
+    ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"].includes(method) ||
+    headers.has("Idempotency-Key");
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
@@ -173,6 +227,22 @@ export async function apiRequest<T>(
 
       if (res.ok) {
         return res.status === 204 ? (null as T) : (res.json() as Promise<T>);
+      }
+
+      // 401 Unauthorized: Trigger singleton refresh mutex and retry once
+      if (res.status === 401 && !options._isRetry) {
+        const newToken = await getRefreshedToken();
+        if (newToken) {
+          const retryHeaders = new Headers(options.headers);
+          retryHeaders.set("Authorization", `Bearer ${newToken}`);
+          return apiRequest<T>(
+            endpoint,
+            { ...options, headers: retryHeaders, _isRetry: true },
+            customTimeout,
+            externalSignal,
+          );
+        }
+        throw new ApiError("Session expired", 401, false);
       }
 
       if (res.status === 429) {
@@ -194,7 +264,8 @@ export async function apiRequest<T>(
       }
 
       if (res.status >= 500) {
-        if (attempt === maxAttempts - 1) {
+        // Non-idempotent mutations (POST without Idempotency-Key) must fail immediately to prevent duplicate side effects
+        if (!isIdempotent || attempt === maxAttempts - 1) {
           throw new ApiError(`Server error ${res.status}`, res.status, false);
         }
         await new Promise((r) => setTimeout(r, calculateBackoff(attempt)));
@@ -211,14 +282,14 @@ export async function apiRequest<T>(
       if (err instanceof ApiError) throw err;
 
       if (err instanceof Error && err.name === "AbortError") {
-        if (attempt === maxAttempts - 1) {
+        if (!isIdempotent || attempt === maxAttempts - 1) {
           throw new ApiError("Request timed out", 0, false);
         }
         await new Promise((r) => setTimeout(r, calculateBackoff(attempt)));
         continue;
       }
 
-      if (attempt === maxAttempts - 1) {
+      if (!isIdempotent || attempt === maxAttempts - 1) {
         throw new ApiError("Network error", 0, false);
       }
       await new Promise((r) => setTimeout(r, calculateBackoff(attempt)));
@@ -229,17 +300,15 @@ export async function apiRequest<T>(
 }
 ```
 
-### 401 / token refresh
+### 401 / token refresh mutex
 
-The transport throws `ApiError` on 401. Handle refresh at the application level (hook or context) to avoid circular imports:
+The transport handles token refresh seamlessly using a singleton promise mutex (`getRefreshedToken`):
 
 1. Catch 401.
-2. `secureStorage.getRefreshToken()`.
-3. If present, call `/auth/refresh`.
-4. On success: save new tokens via `secureStorage`, **retry original request once**.
-5. On failure: `secureStorage.clearAll()`, navigate to login.
-
-Never retry a 401 more than once. A second 401 after refresh means the session is dead.
+2. If `_isRetry` is already set, immediately throw `ApiError("Session expired", 401, false)` — **never retry a refresh twice**.
+3. Await `getRefreshedToken()`. Concurrent 401 calls share the **exact same promise**, preventing token replay invalidation from multiple concurrent `/auth/refresh` calls.
+4. On refresh success: update headers with the new token and re-execute `apiRequest` with `_isRetry: true`.
+5. On refresh failure: `secureStorage.clearAll()` is executed and `Session expired` is thrown to trigger login navigation.
 
 ---
 
@@ -260,7 +329,9 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 min
       gcTime: 30 * 60 * 1000, // 30 min (renamed from cacheTime in v5)
-      retry: 2, // React Query-level retry, on top of transport
+      // CRITICAL: Set retry: false when apiClient already handles transient network/5xx retries.
+      // Setting retry: 2 here multiplies transport retries (4 transport attempts * 3 query retries = 12 network calls).
+      retry: false,
       refetchOnWindowFocus: false, // irrelevant on mobile
       refetchOnReconnect: true, // critical on mobile
     },
@@ -426,19 +497,19 @@ onlineManager.setEventListener((setOnline) =>
 
 ### Retry or not?
 
-| Status / Signal           | Retry?                | Max         | Why                            |
-| ------------------------- | --------------------- | ----------- | ------------------------------ |
-| 429 Too Many Requests     | Yes                   | 3–4         | Transient; honor `Retry-After` |
-| 500 Internal Server Error | Yes                   | 3           | Often transient                |
-| 502 Bad Gateway           | Yes                   | 3           | Upstream proxy failure         |
-| 503 Service Unavailable   | Yes                   | 3           | Overloaded or restarting       |
-| 504 Gateway Timeout       | Yes (idempotent only) | 2           | Origin may have processed it   |
-| Network timeout / reset   | Yes                   | 2           | Request may never have arrived |
-| 401 Unauthorized          | Once                  | 1 (refresh) | Only with a refresh flow       |
-| 400 Bad Request           | No                    | —           | Payload is wrong               |
-| 403 Forbidden             | No                    | —           | Permission issue               |
-| 404 Not Found             | No                    | —           | Endpoint doesn't exist         |
-| 422 Unprocessable Entity  | No                    | —           | Validation failure             |
+| Status / Signal           | Retry?                             | Max         | Why                                              |
+| ------------------------- | ---------------------------------- | ----------- | ------------------------------------------------ |
+| 429 Too Many Requests     | Yes                                | 3–4         | Transient; honor `Retry-After`                   |
+| 500 Internal Server Error | Yes (idempotent / Idempotency-Key) | 3           | Often transient; avoid duplicate mutations       |
+| 502 Bad Gateway           | Yes (idempotent / Idempotency-Key) | 3           | Upstream proxy failure                           |
+| 503 Service Unavailable   | Yes (idempotent / Idempotency-Key) | 3           | Overloaded or restarting                         |
+| 504 Gateway Timeout       | Yes (idempotent / Idempotency-Key) | 2           | Origin may have processed non-idempotent request |
+| Network timeout / reset   | Yes (idempotent / Idempotency-Key) | 2           | Request may never have arrived                   |
+| 401 Unauthorized          | Once (singleton mutex)             | 1 (refresh) | Serialized refresh flow; prevents replay attack  |
+| 400 Bad Request           | No                                 | —           | Payload is wrong                                 |
+| 403 Forbidden             | No                                 | —           | Permission issue                                 |
+| 404 Not Found             | No                                 | —           | Endpoint doesn't exist                           |
+| 422 Unprocessable Entity  | No                                 | —           | Validation failure                               |
 
 ### `AbortSignal.timeout()` safe?
 
@@ -463,6 +534,10 @@ onlineManager.setEventListener((setOnline) =>
 10. Offset pagination — use cursor (`?after=id&limit=20`).
 11. N parallel calls on screen mount without staggering — competes for bandwidth, triggers limits.
 12. Return `200` for everything (server) — use `201` create, `204` delete, `422` validation.
+13. Set `Content-Type: application/json` on `FormData` uploads — strips runtime multipart boundary delimiters and crashes uploads.
+14. Auto-retry non-idempotent mutations (`POST`/`PATCH`) on 5xx or timeout without an `Idempotency-Key`.
+15. Fire parallel token refresh calls on concurrent 401s — causes refresh token reuse detection; serialize with a singleton promise mutex.
+16. Stack default TanStack Query retries on top of retrying transport without configuring `retry: false` — creates an exponential retry storm.
 
 ---
 
@@ -473,12 +548,13 @@ onlineManager.setEventListener((setOnline) =>
 - [ ] All calls go through `apiClient` — no raw `fetch` in components
 - [ ] TanStack Query manages all server state
 - [ ] Service layer is typed
+- [ ] `FormData` requests omit manual `Content-Type` header
 
 **Auth**
 
 - [ ] Tokens in `expo-secure-store` with `AFTER_FIRST_UNLOCK`
 - [ ] No secrets in the bundle
-- [ ] 401 triggers exactly one refresh attempt
+- [ ] 401 triggers exactly one refresh attempt via singleton mutex
 
 **Rate limiting**
 
@@ -495,9 +571,10 @@ onlineManager.setEventListener((setOnline) =>
 
 **Retries**
 
-- [ ] Only 429 and 5xx retried
+- [ ] Only 429 and idempotent 5xx/timeouts retried
+- [ ] Non-idempotent mutations (`POST`) require an `Idempotency-Key` header before any retry
 - [ ] 4xx (except 429) never retried
-- [ ] Mutations use idempotency keys
+- [ ] TanStack Query configured with `retry: false` to avoid retry storm multiplication with transport
 
 **Offline**
 
