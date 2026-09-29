@@ -1,569 +1,319 @@
 ---
 name: design-foundations
 description: >
-  Mobile design foundations for React Native and Expo apps. MUST be loaded when
-  the task touches: typography scales, font sizing, line height, letter spacing,
-  spacing systems, 8pt grids, Gestalt proximity, visual grouping, color systems,
-  60-30-10 palettes, semantic colors, dark mode elevation, HSL color generation,
-  WCAG contrast, UX laws (Fitts, Hick, Miller, Von Restorff, Jakob, Serial
-  Position), CTA hierarchy, component selection (modal vs sheet vs toast),
-  loading states, empty states, or premium/restrained minimalism. Also load when
-  reviewing UI code for typography, spacing, color, or hierarchy correctness.
-  Covers universal design principles (typography, color, hierarchy, premium
-  minimalism — apply to iOS, Android, any platform) and mobile-specific patterns
-  (touch targets, bottom sheets, thumb-zone CTAs, loading states — React Native /
-  Expo). Not for accessibility prop implementation (separate a11y skill). Not
-  for web-only patterns (hover, cursor, scroll-jacking). Version 1.0.1.
-version: 1.1.0
+  Design rules for React Native and Expo mobile UI: type scales, spacing and
+  grouping, color and dark mode, contrast, UX laws (Fitts, Hick, Miller, Jakob),
+  CTA hierarchy, component choice (sheet vs dialog vs toast), loading and empty
+  states, and premium or minimal style. Every rule is labeled Standard, Evidence
+  or Heuristic so you know what is a hard requirement and what is only a default.
+  Use whenever the user builds, styles, reviews or critiques mobile screens, asks
+  why a UI feels off, cluttered, cheap or hard to tap, or wants a palette, type
+  scale or spacing system, even if they never say "design". Not for accessibility
+  props (separate a11y skill), web hover or cursor patterns, or component
+  library selection.
+metadata:
+  version: "2.0.0"
 ---
 
-# Native Design Foundations (React Native + Expo)
+# Design foundations (React Native + Expo)
 
 ## Overview
 
-Every screen is built from four systems: typography, spacing, color, and hierarchy. Get any one wrong and the UI feels "off" — not broken, not ugly, just wrong — and users cannot articulate why. This skill defines the exact numbers, ratios, and laws that govern each system on mobile, and the rules that apply them without guesswork.
+Every screen is built from four systems: typography, spacing, color, and hierarchy. This skill gives defaults for each, and says how much weight each rule deserves. Some rules come from published specs, some from research, and some are only common practice. If an agent treats all three the same, it ends up "fixing" a good design system with an opinion.
+
+## How to read the labels
+
+| Label | Source | What you do |
+| --- | --- | --- |
+| **[Standard]** | WCAG 2.2, Apple HIG, Material 3, React Native docs | Follow it. Name the spec when you explain. Break it only if the user says so. |
+| **[Evidence]** | Research or well-established models (perception, memory, motor control) | Follow by default. Say what the evidence actually covers. Never invent numbers, timings or percentages. |
+| **[Heuristic]** | Designer convention, common practice, opinion | Use as a starting default when the project has no system. If the project's tokens, brand or platform pattern disagree, the project wins. Present it as a default, not a rule. |
+
+**When rules collide:** the user's explicit request, then Standard, then the project's existing design system, then Evidence, then Heuristic.
+
+**When reviewing UI code,** report findings in three groups: *Must fix* (Standard violations), *Should fix* (Evidence), *Consider* (Heuristic). Never present a Heuristic as a defect. Say it is a preference.
+
+## Process: systems-first screen design
+
+**0. Look first.** Search the repo for existing tokens or a theme (`theme.ts`, Tailwind/NativeWind config, Tamagui config, a design system package). Reuse them. Everything below is the fallback when nothing exists.
+
+Then answer these in order. If you can't, you are guessing.
+
+1. **Type scale:** platform scale or a modular scale. Name the body size first, it anchors everything.
+2. **Spacing unit:** a 4 or 8 base. Name three spacing levels before laying out.
+3. **Color system:** neutrals, one primary, optional accent, four semantic colors. Dark mode mapped to the same roles.
+4. **Hierarchy:** name the top three elements in order. The primary action should win a squint test.
+5. **Constraint:** name the human limit you are designing around (too many choices, small target, no clear focal point, unclear grouping) before picking a layout.
 
 ---
 
-## When to Use
+## Typography
 
-**Typography**
+**Platform scales are the source of truth. [Standard]** Use the system scale unless the brand needs otherwise.
 
-- "Choose font sizes" / "Build the type scale" / "The text feels too small"
-- "Set line height" / "Tighten letter spacing" / "The header looks amateur"
+**iOS (SF Pro, Dynamic Type, default "Large" size):**
 
-**Spacing and grouping**
+| Style | Size | Default weight | Line height |
+| --- | --- | --- | --- |
+| Large Title | 34pt | Regular | 41pt |
+| Title 1 | 28pt | Regular | 34pt |
+| Title 2 | 22pt | Regular | 28pt |
+| Title 3 | 20pt | Regular | 25pt |
+| Headline | 17pt | Semibold | 22pt |
+| Body | 17pt | Regular | 22pt |
+| Callout | 16pt | Regular | 21pt |
+| Subheadline | 15pt | Regular | 20pt |
+| Footnote | 13pt | Regular | 18pt |
+| Caption 1 | 12pt | Regular | 16pt |
+| Caption 2 | 11pt | Regular | 13pt |
 
-- "Fix the spacing" / "The form fields look confusing"
-- "Set up the 8pt grid" / "Which elements belong together?"
-- "The screen feels cluttered" / "Nothing is grouped"
+Weights above are the system defaults. Apple's "emphasized" variants are Bold for Large Title, Title 1 and Title 2, and Semibold for Title 3 and below. Don't hard-code Bold on every title.
 
-**Color**
+**Android (Material 3):**
 
-- "Choose a palette" / "Set up dark mode" / "The dark mode looks flat"
-- "Semantic colors" / "The CTA doesn't stand out"
-- "Generate tints and shades of our brand color"
+| Role | Size | Weight | Line height | Tracking |
+| --- | --- | --- | --- | --- |
+| Display Large | 57 | 400 | 64 | -0.25 |
+| Display Medium | 45 | 400 | 52 | 0 |
+| Display Small | 36 | 400 | 44 | 0 |
+| Headline Large | 32 | 400 | 40 | 0 |
+| Headline Medium | 28 | 400 | 36 | 0 |
+| Headline Small | 24 | 400 | 32 | 0 |
+| Title Large | 22 | 400 | 28 | 0 |
+| Title Medium | 16 | 500 | 24 | 0.15 |
+| Title Small | 14 | 500 | 20 | 0.1 |
+| Body Large | 16 | 400 | 24 | 0.5 |
+| Body Medium | 14 | 400 | 20 | 0.25 |
+| Body Small | 12 | 400 | 16 | 0.4 |
+| Label Large | 14 | 500 | 20 | 0.1 |
+| Label Medium | 12 | 500 | 16 | 0.5 |
+| Label Small | 11 | 500 | 16 | 0.5 |
 
-**Hierarchy and UX laws**
+React Native takes plain numbers for `fontSize`, `lineHeight` and `letterSpacing`. There are no `sp` or `dp` strings.
 
-- "The screen feels overwhelming" / "Users aren't tapping the button"
-- "Too many options" / "Where should the primary CTA go?"
-- "Apply Fitts's law" / "Apply Hick's law"
+**Custom modular scale (base 16):** Major Second 1.125 gives 13, 14, 16, 18, 20, 23 (dense, document-like). Minor Third 1.2 gives 11, 13, 16, 19, 23, 28 (general purpose). Major Third 1.25 gives 13, 16, 20, 25, 31. Perfect Fourth 1.333 gives 12, 16, 21, 28, 38 (editorial). Ignore any step below 11. No platform style goes that low. **[Heuristic]** on which ratio fits which product.
 
-**Component selection and loading**
+**Rules**
 
-- "Should this be a modal or a bottom sheet?"
-- "Show a spinner" / "Add a skeleton" / "The screen flashes empty"
-
-**Premium / restrained design**
-
-- "Make this feel premium" / "Luxury" / "Restrained minimalism"
-- "Why does this feel cheap?"
-
-**Design phase**
-
-- Before writing any UI code — run the systems-first process below
-
-Do **not** load this skill for:
-
-- Accessibility prop implementation (`accessibilityLabel`, VoiceOver, focus management — separate a11y skill)
-- Web/browser patterns (hover states, cursor ergonomics, `:focus-visible`, scroll-jacking)
-- Component library selection (Tamagui vs NativeBase vs custom)
-
----
-
-## Process: Systems-First Screen Design
-
-Before styling any screen, answer these five questions in order. If you cannot answer them, you are guessing at values.
-
-**1. What is the type scale?** Pick the platform scale (iOS or Android) or define a modular scale. Name the primary body size first — it is the anchor. Primary body ≥ 16px, never smaller.
-
-**2. What is the spacing base unit?** 8px grid. Every margin, padding, and gap is a multiple of 8 (with 4px sub-steps allowed for tight inline gaps only). Name the three spacing levels before laying out.
-
-**3. What is the color system?** One primary, one secondary, one accent. Semantic colors (error, success, warning, info) are separate. Dark mode mapped to the same scale. Use HSL for all color generation — not HEX, not HSB.
-
-**4. What is the visual hierarchy?** Name the top three elements in order of importance. The primary action wins the squint test. Everything else is secondary or hidden.
-
-**5. Which UX law applies?** Name the cognitive constraint before choosing layout. Too many options → Hick's Law. Small target → Fitts's Law. No clear primary → Von Restorff. Everything looks the same → Gestalt similarity.
+- **[Standard]** Let text scale. Keep `allowFontScaling` on (default), and cap with `maxFontSizeMultiplier` (around 1.5 to 2) only where a layout truly can't grow. WCAG 1.4.4 expects text to resize to 200% without loss of content. iOS Dynamic Type reaches React Native automatically, so don't hard-code point sizes.
+- **[Standard]** No fixed `height` on containers that hold text. Use `minHeight` plus padding, or fixed heights truncate at large text sizes. Test at the largest OS text size.
+- **[Heuristic]** Reading-length body text: 16 or larger (iOS Body 17, Material Body Large 16). Smaller styles (Footnote, Caption, Body Small) are for metadata and dense secondary text. Material's own Body Medium is 14, so this is a preference for long-form reading, not a platform rule.
+- **[Heuristic]** Line height: use the platform table for UI text. For long-form reading, 1.4 to 1.6x. (iOS Body is about 1.29x and that is fine for UI.) WCAG 1.4.12 only requires that layouts survive 1.5x, not that you use it.
+- **[Heuristic]** Large custom-font headlines look better tightened, about -2% to -3% tracking and 110% to 120% line height. React Native `letterSpacing` is in points, so for a 40pt headline use about -0.8 to -1.2. System fonts already adjust tracking by size, so this applies to custom fonts.
+- **[Heuristic]** One sans family, a second only for a real editorial reason. No more than about 6 distinct sizes on a screen.
+- **[Heuristic]** Line length 40 to 60 characters. On phones this mostly happens by itself. It matters on tablets and wide layouts.
+- **[Heuristic]** Match icon size to the adjacent line height (24 icon beside 24 line height).
+- Style for visual hierarchy, mark up for semantics. In React Native the semantic part is `accessibilityRole="header"`. A screen title can look small and muted if the balance number is what matters.
 
 ---
 
-## Core Principles
+## Spacing
 
-**1. Primary body text is never smaller than 16px.** On a phone at arm's length, anything below 16px is caption or supporting-text territory. Primary body is 17pt on iOS (system default) and 16 on Android (default body size). Supporting roles are allowed to be smaller — iOS Subheadline (15pt), Footnote (13pt), Caption 1 (12pt), Caption 2 (11pt); Android Body Medium (14), Body Small (12), Label Large/Medium/Small (14/12/11). These are for metadata, dense layouts, secondary information, and legal text — never for reading-length body copy the user must work through.
+**One system, no contradictions:**
 
-**2. All spacing is a multiple of 4, preferably 8.** The 8pt grid is non-negotiable. Ad-hoc values (13px, 17px, 23px) create drift that compounds across screens. Half-steps of 4px are allowed only for icon-to-label gaps.
-
-**3. More space around a group than inside it.** This is Gestalt proximity — the eye groups elements by spacing alone. If the gap between a label and its field equals the gap between fields, the eye cannot tell which label belongs to which field. Equal gaps kill grouping.
-
-**4. The spacing ratio between adjacent hierarchy levels must be at least 2×.** Research on Gestalt proximity recommends a minimum 2:1 ratio between adjacent spacing levels, preferably 3:1. A 16px gap and a 20px gap read as the same gap. A 16px gap and a 32px gap read as different groups. Use 1× → 2× → 4× (8 / 16 / 32) as the default hierarchy. The rule applies to the relationship between adjacent hierarchy levels (e.g., label-to-field vs field-to-field, or field-to-field vs group-to-group), not to every pair of gaps on a screen — legitimate token values like 16px and 24px may both exist as long as they are not used as adjacent hierarchy levels.
-
-**5. Color carries meaning, never decoration.** Semantic colors (red = error, green = success, amber = warning, blue = info) are functional only. Decorative color comes from the brand palette. Using red decoratively makes users think something is wrong.
-
-**6. One primary action per screen, and it must win the squint test.** Filled with the accent color, largest tap target, thumb-zone placement. If the primary button does not dominate visually, the hierarchy is broken.
-
-**7. Dark mode is not inverted colors.** Pure black (`#000000`) causes OLED smearing and removes elevation. Use `#121212` or a deeply tinted shade. Elevation comes from surface brightness, not shadow — Material Design 3's approach is that elevated surfaces are lighter, not shadowed. Accents desaturate −10 to −20 so they do not vibrate.
-
-**8. Every UX law has a mobile-amplified cost.** Fitts's Law is worse on a phone (targets under 44px cause exponentially more mis-taps). Hick's Law is worse (small screen, immediate decision). Miller's Law is worse (working memory plus interruption).
+- **[Heuristic]** Every spacing value is a multiple of 4, preferably 8. The benefit is consistency and fast handoff, not perception. If the project already uses another scale, follow it.
+- **[Heuristic]** Allowed palette: 4, 8, 16, 24, 32, 48, 64. Use design tokens (`space.sm`), not raw numbers.
+- **[Evidence]** Proximity is a strong grouping cue (Gestalt). Elements closer together read as related. More space around a group than inside it.
+- **[Heuristic]** Adjacent spacing levels should differ by at least about 2x, or the eye reads them as the same gap. Default: 8 (label to field), 16 (between fields), 32 (between groups). Dense lists can shift down: 4, 8, 16. The 2x figure is a working rule, not a measured threshold.
+- **[Heuristic]** The 2x rule applies to *adjacent levels*, so 16 and 24 can both exist in your tokens as long as they are not neighboring levels on the same screen. Use at most 3 levels in one region.
+- **[Heuristic]** Group with whitespace before adding borders or dividers. Proximity usually beats similarity as a grouping cue, but not always, so check the result.
+- **[Heuristic]** Screen edge padding 16 minimum (Material's compact margin is 16dp), 20 to 24 for a roomier feel. Sections need enough space to separate: 24 minimum, and 32 when fields inside are 16 apart.
+- **[Standard]** Use logical properties for RTL: `marginStart`, `marginEnd`, `paddingStart`, `paddingEnd`. Avoid `marginLeft` and `right` for layout that should mirror.
+- **[Standard]** Use `useSafeAreaInsets()` for notches and the home indicator. When the keyboard is open, its height replaces the bottom inset, it doesn't add to it.
+- **[Heuristic]** `KeyboardAvoidingView` is inconsistent across OS versions. `react-native-keyboard-controller` is the usual upgrade for forms. `keyboardShouldPersistTaps="handled"` is typically what you want on form scroll views.
+- **[Heuristic]** Start with too much space and remove until it stops looking loose.
 
 ---
 
-## Best Practices
+## Color
 
-### Typography — Exact Numbers
+**Generating ramps**
 
-**Platform type scales.** Use the system scale unless you have a brand reason not to.
+- **[Heuristic]** HSL is fine for simple tint and shade ramps: vary Lightness, and Saturation a little. Keep hue within about 10 degrees across a ramp, since big hue jumps break the brand color. Small warm or cool shifts are a normal technique, not an error.
+- **[Evidence]** HSL lightness is not perceptually uniform: yellow at L50 looks much lighter than blue at L50, so equal L steps do not give equal contrast. For ramps where contrast must be predictable, use OKLCH or Material's HCT and verify with a contrast checker.
+- Don't build tints in HSB/HSV. Raising "Brightness" doesn't wash a color toward white.
 
-**iOS (SF Pro — use Dynamic Type, never fixed sizes):**
+**Proportions and roles**
 
-| Style       | Size | Weight   | Line Height |
-| ----------- | ---- | -------- | ----------- |
-| Large Title | 34pt | Bold     | 41pt        |
-| Title 1     | 28pt | Bold     | 34pt        |
-| Title 2     | 22pt | Bold     | 28pt        |
-| Title 3     | 20pt | Semibold | 25pt        |
-| Headline    | 17pt | Semibold | 22pt        |
-| Body        | 17pt | Regular  | 22pt        |
-| Callout     | 16pt | Regular  | 21pt        |
-| Subheadline | 15pt | Regular  | 20pt        |
-| Footnote    | 13pt | Regular  | 18pt        |
-| Caption 1   | 12pt | Regular  | 16pt        |
-| Caption 2   | 11pt | Regular  | 13pt        |
+- **[Heuristic]** 60-30-10 is a proportion guide borrowed from interior design, not a UI study. Read it as: about 60% neutral background, about 30% surfaces and structure, about 10% primary or accent color (main CTA, active states).
+- **[Heuristic]** Keep the brand palette small: primary, an optional accent, and neutrals cover most apps. There is no research behind an exact count. More brand colors mostly means more inconsistency to maintain.
+- Roles: Primary, Secondary, Accent, Background, Surface, Semantic (error, success, warning, info). Semantic colors are separate from the brand palette.
+- **[Heuristic]** Semantic conventions: red for error and destructive, green for success, amber for warning, blue for info. Don't use them decoratively. If a brand color is close to one, differentiate by shade or icon.
+- **[Standard]** Never rely on color alone for meaning (WCAG 1.4.1). Pair error red with an icon or text.
+- **[Standard]** Use theme tokens, not hard-coded hex. Resolve them from `useColorScheme()`. On iOS, `PlatformColor('label')`, `PlatformColor('systemBackground')` and `PlatformColor('separator')` follow the system. Names like `.primaryText` or `.systemBackground` are Swift, not React Native.
 
-**Android (Material 3 — design reference; RN uses numeric values, see rules below):**
+**Interaction states**
 
-| Role            | Size | Weight | Line Height | Tracking |
-| --------------- | ---- | ------ | ----------- | -------- |
-| Display Large   | 57   | 400    | 64          | −0.25    |
-| Display Medium  | 45   | 400    | 52          | 0        |
-| Display Small   | 36   | 400    | 44          | 0        |
-| Headline Large  | 32   | 400    | 40          | 0        |
-| Headline Medium | 28   | 400    | 36          | 0        |
-| Headline Small  | 24   | 400    | 32          | 0        |
-| Title Large     | 22   | 400    | 28          | 0        |
-| Title Medium    | 16   | 500    | 24          | 0.15     |
-| Title Small     | 14   | 500    | 20          | 0.1      |
-| Body Large      | 16   | 400    | 24          | 0.5      |
-| Body Medium     | 14   | 400    | 20          | 0.25     |
-| Body Small      | 12   | 400    | 16          | 0.4      |
-| Label Large     | 14   | 500    | 20          | 0.1      |
-| Label Medium    | 12   | 500    | 16          | 0.5      |
-| Label Small     | 11   | 500    | 16          | 0.5      |
+- **[Heuristic]** Pressed: slightly darker or lower opacity. Disabled: reduced emphasis. Hover does not apply on touch screens.
+- **[Standard]** Material 3 disabled state uses about 38% opacity for content. iOS dims with opacity.
 
-The Material 3 scale is expressed in design-spec units (`sp`) at the platform level. React Native does not accept string units — see the Typography rules below for how to translate these into valid `fontSize` values.
+**Dark mode**
 
-**Modular type scale (if building custom):**
+- **[Standard]** Follow the platform. iOS dark mode uses a true black base with slightly lighter elevated surfaces. Material uses dark gray surfaces (Material 2 guidance is around `#121212`, Material 3 uses tonal surface roles). "Never use pure black" is not a rule. It is a Material-flavored preference, and on iOS black is native.
+- **[Standard]** Elevation comes from lighter surfaces, not shadows. Both platforms do this.
+- **[Heuristic]** Starting points: raise card lightness roughly +4 to +6 over the base, and desaturate saturated accents a little in dark mode. Then verify contrast and adjust by eye. The exact numbers are not from a spec.
+- **[Heuristic]** Map light and dark to one shared ramp (for example 50 and 500 in light, 950 and 300 in dark) so themes stay in sync. The step numbers are an example, not a rule.
+- **[Standard]** Contrast rules apply to both themes. Re-check dark mode separately.
 
-| Ratio | Name           | Sizes (base 16px)      | Best For                    |
-| ----- | -------------- | ---------------------- | --------------------------- |
-| 1.125 | Major Second   | 13, 14, 16, 18, 20, 23 | Body-heavy, documentation   |
-| 1.200 | Minor Third    | 11, 13, 16, 19, 23, 28 | **General purpose**         |
-| 1.250 | Major Third    | 10, 13, 16, 20, 25, 31 | Marketing, clear hierarchy  |
-| 1.333 | Perfect Fourth | 9, 12, 16, 21, 28, 38  | Editorial, strong headlines |
+**Contrast**
 
-**Typography rules:**
+| What | Minimum | Source |
+| --- | --- | --- |
+| Normal text (under 18pt, or under 14pt bold) | 4.5:1 | WCAG 1.4.3 |
+| Large text (18pt+, or 14pt+ bold) | 3:1 | WCAG 1.4.3 |
+| UI components, icons, focus indicators | 3:1 | WCAG 1.4.11 |
 
-- **Use numeric `fontSize` values, not string units.** React Native's `fontSize` prop takes a number (e.g., `fontSize: 16`); strings like `"16sp"` or `"16dp"` are invalid. Text scaling is handled by `allowFontScaling` (default `true`, so text respects the user's OS-level font-size preference) and capped via `maxFontSizeMultiplier` (e.g., `1.5`) to prevent layouts from breaking at extreme scale factors. iOS Dynamic Type settings are forwarded to React Native automatically — do not hardcode point sizes.
-- **Container elasticity (no fixed heights on text containers):** Never set hardcoded fixed `height` (e.g. `height: 48`) on cards, buttons, or list items containing text. Use `minHeight` and flexible vertical padding. When OS-level Dynamic Type scales up (especially at 200%), fixed-height containers cause severe text truncation.
-- **Test at 200% font scaling.** Layouts that break need flexible containers, not fixed heights.
-- **Large headers (>70px):** tighten letter spacing −2% to −3%, set line height to 110–120%. Large type at default tracking looks amateur.
-- **Max 6 font sizes** on marketing screens. Dashboards cap primary body at 16 for information density; supporting roles (14, 12) are allowed for metadata.
-- **One sans-serif family.** A second only for a genuine editorial purpose (serif for reading-heavy screens).
-- **Line height:** 1.2× for headlines, 1.4–1.6× for body text.
-- **Max line length:** 40–60 characters on mobile. Wider exhausts the eye before wrapping.
-- **Match icon size to line height.** 24px icon next to 24px line height.
-- **Code structure ≠ visual structure.** Mark up content semantically for screen readers, but style for visual hierarchy independently. A dashboard's `<h1>` ("Dashboard") should be styled small and muted if the account balance number is what the user actually cares about.
+**[Standard]** WCAG is written for web content, and is the common benchmark applied to mobile.
 
-### Spacing — The 8pt Grid
+**Color meaning (brand work)**
 
-**The scale:**
-
-| Token | Value | Use                                             |
-| ----- | ----- | ----------------------------------------------- |
-| `2xs` | 4px   | Icon-to-label gap, tight inline spacing         |
-| `xs`  | 8px   | Between related elements in a group             |
-| `sm`  | 16px  | Between sub-groups and standard content padding |
-| `lg`  | 24px  | Between sections                                |
-| `xl`  | 32px  | Between major page sections                     |
-| `2xl` | 48px  | Section separators                              |
-| `3xl` | 64px  | Page-level spacing                              |
-
-**The 1:2:4 proximity ratio.** More space around a group than inside it. The default hierarchy:
-
-| Level                            | Value | Example                                 |
-| -------------------------------- | ----- | --------------------------------------- |
-| Label to its own field           | 8px   | `Name` label → `Name` input             |
-| Between fields in the same group | 16px  | `Name` input → `Email` input            |
-| Between separate groups          | 32px  | `Personal Info` group → `Address` group |
-
-Think of it as 1× → 2× → 4×. This creates clear visual boundaries.
-
-**The perception threshold.** Research on spacing hierarchy recommends a minimum 2:1 ratio between adjacent spacing levels, preferably 3:1. A 16px and 20px gap (1.25:1) reads as the same gap. A 16px and 32px gap (2:1) separates groups. Increase inter-group spacing to at least 2× intra-group spacing. This rule applies to the relationship between adjacent hierarchy levels, not to every pair of gaps on a screen.
-
-**Spacing rules:**
-
-- **Screen edge padding: 16px minimum, 20–24px preferred.** Text touching the edge reads as broken.
-- **Section spacing: 24px or 32px.** Below 24px, sections blur together.
-- **Space within groups < space between groups.** This is the proximity principle in practice.
-- **Bi-directional layouts (RTL support):** Never hardcode physical layout directions (`marginLeft`, `marginRight`, `left`, `right`). Use logical properties (`marginStart`, `marginEnd`, `paddingStart`, `paddingEnd`). This ensures layouts automatically mirror cleanly in Right-To-Left locales (Arabic, Hebrew, Urdu) without manual conditional overrides.
-- **Never use a spacing value that is not a multiple of 4.** 13px, 17px, 23px are drift.
-- **Set the design tool's nudge to 8px** so drift is impossible during handoff.
-- **Use design tokens, never hardcode pixels.** Reference `space.sm`, `space.lg`, etc.
-- **Maximum 3 spacing levels** between intra-group and inter-group. More than 3 levels over-segments the content.
-- **Signal distinct groups with white-space gaps, not borders or lines, wherever possible.** Proximity is the strongest grouping cue — it overrides color and shape.
-
-**Proximity applies everywhere, not just forms:**
-
-- List item title + its meta info (8px) vs between list items (16–24px)
-- Heading + the section it owns (8–12px) vs between sections (32px+)
-- Icon + its label (4–8px) vs between icon-label pairs (16px+)
-
-**Practical tip:** Start with too much space, then take it away until it stops looking cramped. Easier to reduce than to guess from the start.
-
-**Platform spacing and keyboard insets:**
-
-- **iOS:** Use `useSafeAreaInsets()` for notch and Dynamic Island. Defer to platform defaults where possible.
-- **Android:** Material baseline grid. 8dp grid, 4dp sub-grid for fine adjustments.
-- **Keyboard avoidance without double-padding:** Built-in `KeyboardAvoidingView` causes jitter and layout jumps across OS versions. Prefer `react-native-keyboard-controller` for interactive, 60fps keyboard tracking. When calculating bottom padding, ensure the keyboard height replaces — rather than adds to — `useSafeAreaInsets().bottom`.
-- **Keyboard tap persistence:** Set `keyboardShouldPersistTaps="handled"` on all `ScrollView` and `FlatList` containers so button presses and input selections register on the first touch without requiring an extra tap to dismiss the keyboard.
-
-### Color — Systematic Approach
-
-**Use HSL, not HEX/RGB/HSB, when generating or adjusting color.**
-
-- **Hue (0–359°)** = the color's identity. Red=0°, Green=120°, Blue=240°.
-- **Saturation (0–100%)** = intensity. 0% = grayscale.
-- **Lightness (0–100%)** = how much black/white is mixed in. 50% = the pure base color, 0% = black, 100% = white.
-
-**Hard rule: to create tints/shades of a brand color, change ONLY Lightness or Saturation. Never change Hue.** Changing hue changes which color it is, not how light/dark it is — it breaks brand identity. Step Lightness up or down in consistent jumps (5, 8, or 10 points per step) for up to ~10 steps. Keep the jump size constant across the whole family.
-
-**Do not use HSB/HSV for tint/shade generation.** Maxing out HSB's "Brightness" only pushes a color to peak intensity — it does not wash it out toward white. Only HSL's Lightness channel can properly produce a light tint.
-
-**The 60-30-10 rule:**
-
-| Proportion | Role                 | Example                                |
-| ---------- | -------------------- | -------------------------------------- |
-| 60%        | Primary/background   | White canvas (light), `#121212` (dark) |
-| 30%        | Secondary/supporting | Cards, headers, structural elements    |
-| 10%        | Accent               | Primary CTA, active states, badges     |
-
-The most successful apps use only **2–4 brand colors total** (primary + secondary + accent + neutral). This count **excludes the four semantic tokens** (error, success, warning, info), which are functional and always required. Adding a fifth or sixth _brand_ color does not make the app more interesting — it makes the brand feel inconsistent and the interface cluttered.
-
-**Six color roles:**
-
-| Role       | Purpose                                                                                                  |
-| ---------- | -------------------------------------------------------------------------------------------------------- |
-| Primary    | Brand identity, key CTAs, active states                                                                  |
-| Secondary  | Supporting actions, secondary buttons, highlights                                                        |
-| Accent     | Emphasis, badges, floating action buttons                                                                |
-| Background | Page and card backgrounds (light + dark)                                                                 |
-| Surface    | Cards, modals, elevated elements                                                                         |
-| Semantic   | Error (red), success (green), warning (amber), info (blue) — **excluded from the 2–4 brand-color count** |
-
-**Semantic color rules:**
-
-- **Never hardcode colors.** Use semantic tokens that adapt to light/dark mode automatically.
-- **Never use semantic colors decoratively.** Red is always an error. Blue is always a link or info. Yellow is always a warning.
-- **Semantic color meaning overrides brand color.** If a UI action has an established semantic meaning (destructive/delete = red), that semantic color wins over the brand's primary color for that element — even if the brand color is "on-brand." Use **semantic naming** (e.g., "danger", "success") for colors tied to function, and **primitive naming** (e.g., "purple-500") for colors that are just colors.
-
-| Instead of                     | Use                                                     |
-| ------------------------------ | ------------------------------------------------------- |
-| `#000000`                      | `.primaryText` (adapts to white in dark mode)           |
-| `#FFFFFF`                      | `.systemBackground` (adapts to near-black in dark mode) |
-| Hardcoded gray                 | `.secondaryText` or `.tertiaryText`                     |
-| `rgba(0,0,0,0.1)` for dividers | `.separator`                                            |
-
-**Interaction states (apply consistently across all interactive elements):**
-
-- **Hover:** slightly lighter/brighter version of the base color (web only — not applicable in React Native).
-- **Pressed/active:** slightly darker version of the base color.
-- **Disabled:** desaturate the base color (unless it's already grayscale).
-
-**Dark mode rules:**
-
-1. **Never use pure black (`#000000`).** Use `#121212` or a deeply tinted shade of the accent. Pure black causes OLED smearing during scroll and removes elevation capability.
-2. **Desaturate primary and accent colors −10 to −20.** Fully saturated colors vibrate against dark backgrounds.
-3. **Elevation comes from surface brightness, not shadow.** Material Design 3's approach is that elevated surfaces are lighter, not shadowed. Lighten card backgrounds +4 to +6 in lightness relative to the dark background.
-4. **Map light and dark systematically.** Light mode uses palette steps 50 (background) and 500 (accent); dark mode uses 950 (background) and 300 (primary). Following a scale keeps themes in sync.
-5. **Dark mode is not simply inverted light mode.** Treat dark and light mode as separately tuned, not mirror images. Dark colors need more separation between steps than light colors do.
-6. **Maintain the same contrast ratios as light mode.** WCAG 2.2 applies to both themes equally.
-
-**WCAG 2.2 contrast requirements:**
-
-| Text Type                           | Minimum Ratio                   |
-| ----------------------------------- | ------------------------------- |
-| Normal text (< 18pt or < 14pt bold) | **4.5:1**                       |
-| Large text (≥ 18pt or ≥ 14pt bold)  | **3:1**                         |
-| UI components and graphical objects | **3:1** against adjacent colors |
-
-Source: WCAG 2.2 SC 1.4.3.
-
-**Color psychology (for brand decisions):**
-
-| Color         | Communicates                      | Best For                                  |
-| ------------- | --------------------------------- | ----------------------------------------- |
-| Blue          | Trust, stability, professionalism | Banking, healthcare, enterprise           |
-| Red           | Urgency, attention                | Error states, sale badges (use sparingly) |
-| Green         | Growth, success, nature           | Success states, financial gain            |
-| Yellow/Orange | Warmth, energy, optimism          | Warnings, playful brands                  |
-| Purple        | Creativity, luxury, innovation    | Distinctive brands (Figma, Twitch)        |
-| Neutrals      | Reduce cognitive load             | Most productivity tools                   |
-
-**Cultural note:** Color meanings are not universal. White = purity in the West, mourning in parts of East Asia. Red = luck in China, danger in the West. Research key markets if shipping globally.
-
-### Premium / Restrained Minimalism
-
-A specific design register, not just "minimal in general." The pattern at work in brands like Chanel, Arc'teryx, and Apple's product pages — visual language used to signal quality and confidence rather than to decorate.
-
-**The core mechanism: restraint reads as confidence.** A design that needs many colors, effects, or call-outs to feel important is signaling insecurity about its own content. Premium minimalism works by removing everything that isn't doing real work, so what remains gets full attention by default.
-
-**Negative space is not empty space — it's the loudest signal in the layout.** Generous, asymmetric whitespace around a small number of elements reads as expensive; cramming content edge-to-edge reads as budget. When in doubt, the premium move is almost always to remove an element or increase the space around it, not to add a new one.
-
-**Color discipline — tighter than the general rule.** A true monochrome or near-monochrome palette (black/white/grayscale, one accent used sparingly if at all) outperforms a multi-color system for this register. Sometimes 90%+ neutral with a single, deliberate point of accent, or no accent color at all.
-
-**Typography carries more weight, with less variation.** Typically 1–2 typefaces, restrained weight contrast (one light/regular weight for body, one heavier weight reserved only for the single most important element on screen), and lets size/spacing do more of the hierarchy work than color or decoration does.
-
-**Imagery and material honesty over illustration/ornamentation.** Favor real, high-fidelity photography or product imagery over icons, illustrations, or decorative graphics — the materials should look and feel real and considered.
-
-**Motion, if present, is minimal and deliberate.** Subtle, slow, purposeful transitions (fades, gentle easing) reinforce restraint; bouncy, fast, or attention-grabbing animation breaks the register.
-
-**Quick anti-pattern checklist:**
-
-- Multiple accent colors, gradients, or decorative flourishes on a page meant to read as premium → strip back toward near-monochrome.
-- Content packed edge-to-edge with minimal margin/whitespace → this is the single most common violation; increase space before changing anything else.
-- More than 2 typefaces, or more than 2–3 weights in active use → consolidate.
-- Stock-feeling icons or illustration used where a real photograph would read as more considered → swap to photography where feasible.
-- Fast, bouncy, or playful motion on an otherwise restrained layout → slow it down or remove it; motion should never be the loudest thing on screen in this register.
-- A CTA or element using boldness/color/size to compete for attention against the actual hero content → there should be exactly one loudest element per screen; if two things are fighting, one is wrong.
-
-### UX Laws — Applied with Mobile Examples
-
-**Fitts's Law — time to reach a target depends on distance and size.**
-
-> **Mobile application:** Spotify's Play button is large and centered in the bottom bar. Touch targets ≥ 44×44pt (iOS) / 48×48dp (Android). Primary CTAs go in the bottom third of the screen (thumb zone).  
-> **Research:** Touch target experiments revealed 44–48pt targets acquiring in 200–400ms, while 30–36pt targets require 400–600ms and 20–24pt targets demand 600–1000ms — a 2–3× performance penalty. Targets meeting minimum size guidelines reduce mis-tap errors by 60–80% and improve selection speed by 30–50% compared to undersized targets.
-
-**Hick's Law — decision time increases logarithmically with the number of choices.**
-
-> **Mobile application:** Netflix starts with "Top Picks," revealing genres as you scroll. Spotify's playlist creation shows three large buttons (New, Search, Browse), not endless options.  
-> **Rule:** Maximum 5–7 options per visible screen. Everything else goes behind progressive disclosure.
-
-**Miller's Law — working memory holds 7±2 chunks.**
-
-> **Mobile application:** Google's hamburger menu groups 20+ links into categories. A mobile bottom tab bar is capped at 5 icons (3–4 ideal).  
-> **Rule:** Chunk navigation into 5–9 items. Anything more goes into accordions or categories.
-
-**Jakob's Law — users expect your app to work like the other apps they use.**
-
-> **Mobile application:** Instagram's bottom navigation allows swipe-up for stories, matching TikTok. Salesforce mimics Excel grids.  
-> **Rule:** Use platform-standard patterns (bottom tabs, swipe-back, pull-to-refresh, long-press context menus). Deviate only with a clear, tested reason.
-
-**Von Restorff Effect — the visually distinct item is remembered and clicked.**
-
-> **Mobile application:** LinkedIn highlights connection requests in orange.  
-> **Rule:** One primary CTA per screen. It must be visually distinct from everything around it (filled, accent color, larger).
-
-**Serial Position Effect — items at the beginning and end of a list are remembered best.**
-
-> **Mobile application:** Navigation: most important items first and last. Long landing page: CTA at hero (top) and repeated at bottom.  
-> **Rule:** Put key information at the top and bottom of scrollable content.
-
-**Gestalt — proximity, similarity, and continuity define what the eye groups.**
-
-> **Mobile application:** Notion's database layouts use spacing and color to make relationships obvious without tutorials. Airbnb listings cluster price and review together.  
-> **Rule:** Space between groups must be visibly larger than space within a group (minimum 2× ratio between adjacent hierarchy levels). Related elements share visual style. Proximity overrides color and shape as a grouping cue.
-
-### Component Selection — Which Interaction Layer?
-
-| Interaction                                                      | Component                       | Why                                                                |
-| ---------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------ |
-| Confirm destructive action (delete, logout with unsaved changes) | **Confirm dialog**              | Requires explicit acknowledgment. Safe action (Cancel) is primary. |
-| Short form or quick edit keeping context                         | **Bottom sheet**                | Thumb-reachable. Reduced touch distance vs centered dialog.        |
-| Filter, sort, share options                                      | **Bottom sheet / action sheet** | Contextual. Dismissible with swipe.                                |
-| Quick confirmation ("Saved", "Copied")                           | **Toast**                       | Non-blocking. Auto-dismisses. Never requires a tap.                |
-| Persistent status (offline, update available)                    | **Banner**                      | Persistent. Dismissible. Does not block.                           |
-| Full-screen task (compose, checkout)                             | **Full-screen modal / push**    | The task is the screen.                                            |
-| Detail adding context to an element                              | **Popover** (anchored)          | Anchored. Non-blocking. Dismisses on outside tap.                  |
-| Critical blocking error                                          | **Blocking dialog**             | Rare. Only when app cannot function without a decision.            |
-| Non-critical error                                               | **Inline error**                | Appears at the field or section. No modal.                         |
-
-**Component rules:**
-
-- **Bottom sheet is the mobile default for contextual, dismissible modals.** Centered dialogs are hard to reach on a 6.7" screen. Use a dialog when you need an immediate decision or critical confirmation; use a bottom sheet when the task is related to the current screen and can be dismissed by swiping.
-- **Confirm dialogs always have a Cancel.** Safe action is primary (Cancel/Keep), destructive is secondary (Delete/Discard).
-- **Toasts never carry critical information.** If the user must read it, use a banner or inline message.
-- **Never stack modals.** If a modal needs to open a modal, the flow is wrong. Use a sheet that expands.
-
-### Loading States — Match Signal to Wait Time
-
-| Wait time | Signal                                        | Example                                                           |
-| --------- | --------------------------------------------- | ----------------------------------------------------------------- |
-| 0–1s      | **No indicator** (press state only)           | Tap feedback is enough. A flash of spinner is worse than nothing. |
-| 1–2s      | **Button spinner** (replace label)            | Login submit, save action.                                        |
-| 2–4s      | **Inline skeleton** (mirrors final shape)     | List items, cards, profile sections.                              |
-| 4–10s     | **Skeleton with shimmer** or **progress bar** | Feed loading, search results.                                     |
-| 10s+      | **Background process + push notification**    | Report generation, export. Do not hold the user on screen.        |
-
-**Loading rules:**
-
-- **Skeleton beats spinner.** Multiple usability studies have shown that users perceive a 3-second skeleton wait as roughly equivalent to a 1.5-second spinner wait. Apps that switched from spinners to skeleton screens reported user-perceived performance gains of 30–50% without any actual backend change.
-- **Never show a full-screen spinner that blocks all interaction.** Worst loading pattern on mobile.
-- **Match skeleton shape to real content.** Mismatch causes layout shift, which feels broken.
-- **Disable the triggering button during async.** Prevents duplicate submissions.
-- **Never show stale UI under a spinner.** If cached data exists, show it with a subtle refresh indicator.
-
-### CTA and Hierarchy Rules
-
-1. **One primary action per screen.** If you name two, split the screen or move one to a sheet.
-2. **The primary button must win the squint test.** Filled, accent color, larger. If it does not dominate visually, hierarchy is broken.
-3. **Never put two filled buttons side by side.** One filled, one ghost. Never two filled.
-4. **Hide advanced and unneeded options until requested.** Progressive disclosure. Do not render disabled options for features the user has not unlocked — that is noise.
-5. **If an option is not relevant to the user's current state, do not show it.** State-aware UI beats disabled UI.
-6. **Secondary CTAs are ghost/outline or text links.** Tertiary actions are icon buttons or text.
-7. **CTA placement: bottom third of the screen** (thumb zone). Avoid top corners for primary actions.
-8. **CTA copy: verb + outcome.** "Start free trial," "Save changes," "Send message." Never "Submit" or "OK."
-
-### Empty and Error States
-
-- **Empty state points to the primary action.** A `+` button, "Add your first X." Never a blank screen.
-- **Search empty state:** acknowledge zero results, suggest a typo fix, show friendly imagery, offer a clear exit ("Browse categories," reset filter). Show the search term that was typed, so the user can immediately spot their own typo.
-- **Error state is inline, not modal**, unless it blocks the entire screen. Show the error at the field or section where it occurred.
-- **Error copy is specific and actionable.** "Email must include @" beats "Invalid input." "Check your connection and try again" beats "Error 500."
+**[Heuristic, weak evidence]** Color associations (blue trust, green growth, purple creativity) are cultural and context dependent, and studied effects are small. Use them as a starting hypothesis, not a reason. White means purity in some cultures and mourning in others, so check your target markets. Red for a sale badge conflicts with red as error, so pick one meaning per screen.
 
 ---
 
-## Common Rationalizations
+## Premium and restrained minimalism
 
-| Excuse                                                           | Why it is wrong                                                                                                                                                       |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The 13px padding looks fine."                                   | It looks fine on this screen. It drifts on the next one. Grid discipline is what makes a suite of screens feel like one product.                                      |
-| "16px and 20px are different enough."                            | A 1.25:1 ratio reads as the same gap. Use 2:1 minimum between adjacent hierarchy levels. 16px and 32px separate groups. 16px and 20px do not.                         |
-| "The body text at 14px is readable."                             | On a phone at arm's length, 14px is caption or metadata territory. Primary body copy is 16–17px.                                                                      |
-| "Dark mode is just inverted colors."                             | Inverted colors look broken — bright accents vibrate, shadows disappear, pure black smears on OLED. Dark mode needs its own elevation and desaturation logic.         |
-| "The button works, the loading state is a nice-to-have."         | Silent buttons cause duplicate taps, duplicate network calls, and duplicate payments. Loading feedback is not cosmetic.                                               |
-| "I'll show a spinner, it's loading."                             | A full-screen spinner for a 400ms request is worse than no indicator. Match signal to duration.                                                                       |
-| "The user will figure out which button is primary."              | If hierarchy requires thought, it is broken. The primary must win the squint test.                                                                                    |
-| "Two filled buttons look balanced."                              | Balance is not the goal. Guidance is. Two equally weighted buttons force a decision the design should make for the user.                                              |
-| "I'll show the disabled state so users know the feature exists." | Disabled controls add cognitive load and communicate "you cannot do this." Hide what is not relevant yet.                                                             |
-| "More colors make the app more interesting."                     | The highest-converting apps use 2–4 brand colors total (semantic tokens excluded). Adding brand colors makes the brand feel inconsistent and the interface cluttered. |
-| "Hover looks good in the prototype."                             | React Native has no hover. Prototypes built in Figma with hover states do not translate. Use pressed.                                                                 |
-| "The skeleton doesn't need to match the layout."                 | A skeleton that does not match the final shape causes layout shift, which feels broken.                                                                               |
-| "Users will read the toast."                                     | Toasts auto-dismiss in 2–3 seconds. Never put critical information there.                                                                                             |
-| "Premium just means black and white."                            | Premium is restraint, not absence. It means removing everything that isn't doing real work — not stripping the design to nothing.                                     |
-| "A page using five font weights creates visual interest."        | Five weights is noise, not interest. Premium minimalism uses 1–2 typefaces and 2–3 weights maximum.                                                                   |
+**[Heuristic]** A style register, not a law of design. Apply it only when the user asks for premium, luxury or minimal, or the brand is already there.
+
+- Restraint reads as confidence: remove what isn't doing work before adding anything.
+- Generous, uneven whitespace around few elements. Edge-to-edge packing is the most common way to break the register.
+- Near-monochrome palette, one deliberate accent or none.
+- 1 to 2 typefaces, 2 to 3 weights, and let size and space do the hierarchy.
+- Real photography over stock icons and illustration where feasible.
+- Slow, subtle motion (fades, gentle easing). Motion should never be the loudest thing on screen.
+- One loudest element per screen. If two fight, one is wrong.
+
+---
+
+## UX laws: what each one actually supports
+
+**Fitts's law. [Evidence]** Movement time grows with distance and shrinks with target size (roughly logarithmically). Bigger, closer targets are faster and cause fewer misses. Don't quote specific millisecond or error-rate figures, none are established here.
+- **[Standard]** Minimum touch targets: 44x44pt on iOS, 48x48dp on Android. WCAG 2.2 sets 24x24 CSS px as the AA floor (2.5.8). Use `hitSlop` when the visual is smaller.
+- **[Heuristic]** Primary actions within thumb reach (see CTA rules for the platform caveat).
+
+**Hick's law. [Evidence]** Decision time grows roughly logarithmically with the number of equally likely options. It describes *decisions*, so apply it at decision points (paywalls, action menus, onboarding choices). It does not limit scannable lists, pickers or settings. There is no proven "5 to 7 options" cutoff. Treat 3 to 5 primary choices at a decision point as **[Heuristic]**, and group the rest.
+
+**Miller's law. [Evidence]** Short-term memory holds roughly 7 plus or minus 2 chunks (Miller, 1956), and later work suggests closer to 4 (Cowan, 2001). It is about remembering, not about how long a menu can be.
+- **[Standard]** Bottom tab bars: up to 5 destinations (iOS HIG on iPhone, Material navigation bar 3 to 5). Use a "More" tab or a drawer beyond that.
+
+**Jakob's law. [Heuristic]** People expect your app to work like the apps they already use. Use platform patterns (tabs, swipe-back, pull-to-refresh, long-press menus) and deviate only for a tested reason. This is the tie-breaker when a heuristic below conflicts with the platform.
+
+**Von Restorff (isolation) effect. [Evidence]** The item that differs from its surroundings is remembered best (memory studies, 1930s onward). Applying it to CTAs is a reasonable **[Heuristic]** extension: make the one primary action visibly different (filled, accent).
+
+**Serial position effect. [Evidence]** People recall the first and last items of a list best. Using it for navigation order or landing-page CTAs is a **[Heuristic]** extension.
+
+**Gestalt. [Evidence]** Proximity, similarity and common region are well-established perception principles. The numeric spacing ratios built on them are **[Heuristic]**.
+
+---
+
+## Component selection
+
+**[Heuristic]** These are platform conventions and common practice. Follow the project's existing patterns first.
+
+| Interaction | Component | Why |
+| --- | --- | --- |
+| Confirm a destructive or discard action | Alert / confirm dialog | Needs explicit acknowledgment. Make the safe option the easy one. |
+| Short form, filter, sort, share | Bottom sheet or action sheet | Contextual, thumb-reachable, dismissible by swipe. |
+| Quick confirmation ("Saved") | Toast | Non-blocking, auto-dismisses. |
+| Persistent status (offline, update available) | Banner | Stays until resolved. |
+| Full-screen task (compose, checkout) | Full-screen modal or pushed screen | The task is the screen. |
+| Detail anchored to an element | Popover | Non-blocking, dismisses on outside tap. |
+| App cannot continue without a decision | Blocking dialog | Rare. |
+| Non-critical error | Inline message at the field or section | No modal. |
+
+- Prefer a sheet for contextual tasks that can be dismissed. Use a centered alert for destructive confirmations and critical errors. Both are native patterns.
+- Don't put critical information in a toast. Toasts disappear and are easy to miss. If the user must read it, use a banner or inline message.
+- Avoid stacking modals. The standard exception is a confirm dialog over a sheet or screen, for example "Discard changes?".
+
+---
+
+## Loading states
+
+**[Evidence]** The response-time limits behind this table: about 0.1s feels instant, about 1s keeps the user's flow, and about 10s is the limit of their attention (Nielsen's summary of older HCI research). The mapping to UI is **[Heuristic]**.
+
+| Wait | Signal |
+| --- | --- |
+| Under ~1s | No spinner. Show the pressed state. A flash of spinner is worse than nothing. |
+| 1 to 2s | Button spinner for an action. For content, keep the previous content or a quiet placeholder. |
+| 2 to 10s | Skeleton for content with a known layout. Spinner for actions. Progress bar if you know the progress. |
+| 10s+ | Determinate progress, let the user leave, and notify on completion. |
+
+- **[Evidence, mixed]** Skeleton vs spinner. Results conflict. A 2017 Viget study (136 participants) found skeleton screens felt *longer* than spinners. A 2018 study by Mejtoft et al. found the opposite. Skeletons seem to help in familiar layouts and hurt when unfamiliar. Don't promise "30 to 50% faster perceived speed". No such number is established.
+- **[Heuristic]** If you use a skeleton, match the final layout so nothing jumps when content arrives. Reserve space either way.
+- **[Heuristic]** Show cached data with a subtle refresh indicator instead of a blank state under a spinner.
+- **[Heuristic]** Avoid full-screen blocking spinners for content loads. A brief blocking state is acceptable for irreversible actions like payment.
+- **[Heuristic]** Prevent duplicate submits while an action is in flight. Disabling the button works, and so does ignoring presses. Keep the button visible with a spinner.
+
+---
+
+## CTA and hierarchy
+
+- **[Heuristic]** One primary action per screen, visibly dominant (filled, accent, larger). If you name two, split the screen or move one into a sheet.
+- **[Heuristic]** Secondary actions are outline or text. Avoid two filled buttons side by side. Platform alerts and paired action bars are an exception.
+- **[Heuristic]** Thumb-zone placement (bottom third) helps one-handed use. The evidence is observational grip studies (Hoober, 2013, updated 2017) and dated for large phones. **Platform convention wins:** iOS puts Done, Save and Cancel in the navigation bar, so don't relocate those to the bottom for the sake of the thumb zone.
+- **[Heuristic]** CTA copy: specific verb plus outcome ("Send message", "Start free trial") beats "Submit". "Done", "Save" and "OK" are fine where the platform uses them.
+- **[Heuristic]** Hide options that are irrelevant to the user's state. Keep a disabled control, with a reason, when the user needs to know it exists or how to enable it (for example a submit button until the form is valid).
+- **[Heuristic]** Progressive disclosure: advanced options behind "More".
+
+## Empty and error states
+
+- **[Heuristic]** An empty state should give a next step when one exists ("Add your first project"). Some empty states are success states ("You're all caught up") and need no button.
+- **[Heuristic]** Search with no results: echo the query so typos are visible, suggest a fix, and offer an exit ("Clear filters", "Browse categories").
+- **[Heuristic]** Errors go inline at the field or section unless the whole screen is blocked.
+- **[Heuristic]** Error copy says what happened and what to do: "Email must include @" beats "Invalid input". "Check your connection and try again" beats "Error 500".
+
+---
+
+## Common rationalizations
+
+| Excuse | Reality |
+| --- | --- |
+| "13px padding looks fine." | **[Heuristic]** It looks fine here and drifts on the next screen. Tokens are what make a suite feel like one product. |
+| "14px body is readable." | **[Heuristic]** For reading-length text on a phone, 16 to 17 is safer. 14 is fine for dense secondary text. |
+| "The tap target is small but the icon is clear." | **[Standard]** 44pt / 48dp is the platform minimum. Add `hitSlop`. |
+| "Red button looks better in our brand color." | **[Heuristic]** Destructive actions read as destructive when red. Don't fight the convention without a reason. |
+| "Color already shows it's an error." | **[Standard]** Add an icon or text (WCAG 1.4.1). |
+| "Dark mode is just inverted light mode." | **[Standard]** Each platform tunes dark surfaces and elevation separately. Re-check contrast. |
+| "The skill says X, but the project's design system says Y." | Follow the project for Heuristics. Standards still win, and flag the gap to the user. |
 
 ---
 
 ## Verification
 
-### Warning signs to watch for
+### Must fix (Standard)
 
-If any of these are true, stop and fix before proceeding:
+- Text contrast under 4.5:1 (3:1 for large text, 3:1 for UI components and icons), in light and dark
+- Meaning carried by color alone
+- Touch targets under 44pt iOS / 48dp Android
+- Fixed heights on text containers, `allowFontScaling` disabled, or layout breaks at the largest text size
+- `fontSize` as a string
+- Physical left/right layout props in an app that supports RTL
+- More than 5 bottom-tab destinations
+- Content hidden under the notch, home indicator or keyboard
 
-- A primary body text size below 16px (supporting roles like Footnote or Body Small are exempt)
-- A spacing value in the code that is not a multiple of 4
-- Two _adjacent_ hierarchy levels whose spacing ratio is less than 2× (e.g., 16px between fields and 24px between groups reads as the same gap; use 32px instead)
-- A label whose gap to its field equals the gap between fields
-- Two filled buttons in the same row
-- A centered dialog used for a contextual, dismissible task where a bottom sheet would work
-- A full-screen spinner blocking all interaction
-- A skeleton that does not mirror the final content shape
-- Pure black (`#000000`) used as a large surface in dark mode
-- More than 6 font sizes on a marketing screen
-- More than 7 options in a visible list or menu
-- A screen with no visible primary action
-- An empty state with no CTA
-- A disabled option that is not relevant to the user's current state
-- More than 4 brand colors in use (primary + secondary + accent + neutral); semantic tokens are excluded from this count
-- More than 2 typefaces or more than 3 weights in active use on a premium-register screen
+### Should fix (Evidence)
 
-### Pre-ship checklist
+- Related items not visibly closer together than unrelated items (label to field gap equals field to field gap)
+- No feedback for an action that takes over about 1 second
+- Many equal-weight choices at a single decision point
+- No element that stands out as the primary action
 
-**Typography**
+### Consider (Heuristic)
 
-- [ ] Primary body text ≥ 16px (iOS 17pt, Android 16); supporting roles (iOS Footnote 13pt, Android Body Medium 14 / Body Small 12) used only for metadata, dense layouts, and secondary information
-- [ ] Numeric `fontSize` values used — no string units like `"16sp"` or `"16dp"`
-- [ ] `allowFontScaling` enabled and `maxFontSizeMultiplier` set to prevent extreme scaling break
-- [ ] Elastic containers used (`minHeight` and flexible vertical padding instead of fixed `height` on text containers)
-- [ ] Tested at 200% font scaling without layout break
-- [ ] ≤ 6 font sizes on the screen
-- [ ] Large headers have tightened letter spacing (−2% to −3%) and 110–120% line height
-- [ ] Line height: 1.2× headlines, 1.4–1.6× body
-- [ ] Max line length: 40–60 characters
-- [ ] Icons match adjacent text line height
-
-**Spacing and proximity**
-
-- [ ] All spacing values are multiples of 4 (preferably 8)
-- [ ] More space around a group than inside it
-- [ ] Spacing ratio between _adjacent_ hierarchy levels is at least 2× (8 → 16 → 32, or equivalent)
-- [ ] Label to field: 8px. Between fields: 16px. Between groups: 32px.
-- [ ] Screen edge padding ≥ 16px
-- [ ] Section spacing ≥ 24px
-- [ ] Maximum 3 spacing levels
-- [ ] Design tool nudge set to 8px
-- [ ] Logical layout properties used for bi-directional RTL support (`marginStart`, `marginEnd`, `paddingStart`, `paddingEnd`)
-- [ ] Software keyboard avoidance handles insets without double-padding bottom safe area
-- [ ] `keyboardShouldPersistTaps="handled"` configured on all scroll containers
-
-**Color**
-
-- [ ] HSL used for all tint/shade generation (never HSB/HSV)
-- [ ] Hue never changed to create tints/shades — only Lightness and Saturation
-- [ ] 60-30-10 ratio: 60% background, 30% secondary, 10% accent
-- [ ] 2–4 _brand_ colors total (primary + secondary + accent + neutral); the four semantic tokens (error, success, warning, info) are excluded from this count
-- [ ] Semantic colors used only for function (red = error, etc.)
-- [ ] Dark mode uses surface brightness for elevation, not shadow
-- [ ] No pure black (`#000000`) for large surfaces
-- [ ] Accents desaturated −10 to −20 in dark mode
-- [ ] WCAG 2.2: 4.5:1 body text, 3:1 large text
-- [ ] Light/dark themes mapped to a shared color scale
-
-**Hierarchy and CTA**
-
-- [ ] One primary action per screen
-- [ ] Primary button wins the squint test
-- [ ] No two filled buttons side by side
-- [ ] Primary CTA in bottom third (thumb zone)
-- [ ] CTA copy is verb + outcome, not "Submit"
-- [ ] Advanced options hidden until requested
-- [ ] Irrelevant options not rendered (not just disabled)
-
-**UX laws**
-
-- [ ] ≤ 7 visible options per screen (Hick's Law)
-- [ ] Bottom tab bar ≤ 5 icons (Miller's Law)
-- [ ] Touch targets ≥ 44pt iOS / 48dp Android (Fitts's Law)
-- [ ] One visually distinct element per screen (Von Restorff)
-- [ ] Platform-standard navigation patterns used (Jakob's Law)
-- [ ] Key info at top and bottom of scrollable content (Serial Position)
-- [ ] Related elements grouped, unrelated separated (Gestalt)
-
-**Component selection and loading**
-
-- [ ] Mobile modals use bottom sheet for contextual, dismissible tasks; confirm dialogs for destructive actions; blocking dialogs for critical errors; full-screen modal/push for full-screen tasks
-- [ ] Toasts only for non-critical confirmations
-- [ ] No modal stacks another modal
-- [ ] Under 1s: no indicator. 1–2s: button spinner. 2–4s: skeleton. 10s+: background.
-- [ ] Skeleton matches final content shape
-- [ ] Triggering button disabled during async
-
-**States**
-
-- [ ] Empty state points to primary action
-- [ ] Search empty state offers suggestion + exit
-- [ ] Error state is inline unless it blocks the screen
-- [ ] Error copy is specific and actionable
-
-**Premium register (if applicable)**
-
-- [ ] Near-monochrome palette (90%+ neutral)
-- [ ] Generous whitespace around hero elements
-- [ ] 1–2 typefaces, 2–3 weights maximum
-- [ ] Photography over illustration/ornamentation
-- [ ] Motion is slow, subtle, and never the loudest thing on screen
-- [ ] Exactly one loudest element per screen
+- Spacing values that are not multiples of 4, or adjacent spacing levels under about 2x apart
+- Reading-length text under 16 (iOS 17)
+- More than about 6 font sizes on one screen
+- More than 2 typefaces in active use
+- Skeleton shape that doesn't match the loaded layout
+- Two filled buttons side by side
+- Modal used for a contextual task where a sheet would fit
+- Toast carrying important information
+- Empty state with no next step where one exists
+- Generic CTA copy ("Submit")
+- Premium register: more than 2 to 3 weights, multiple accents, or competing loudest elements
 
 ---
 
-_Every principle is verifiable on a real device. Every checklist item maps to a screen the user will touch. If an item cannot be checked, the screen is not ready to ship._
+## Sources to check when in doubt
+
+WCAG 2.2 (SC 1.4.1, 1.4.3, 1.4.4, 1.4.11, 1.4.12, 2.5.8), Apple Human Interface Guidelines (Typography, Layout, Tab bars, Dark Mode), Material Design 3 (Typography, Color, Navigation bar, State layers), React Native docs (Text, `PlatformColor`, layout props), Nielsen Norman Group on response times, Viget "A Bone to Pick with Skeleton Screens" (2017).
