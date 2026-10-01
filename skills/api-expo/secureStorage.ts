@@ -7,11 +7,13 @@ import type { TokenStore } from "./apiClient";
 const ACCESS_KEY = "auth_access_token";
 const REFRESH_KEY = "auth_refresh_token";
 
-// AFTER_FIRST_UNLOCK lets iOS read the Keychain when the app wakes in the background
-// (push, background fetch) while the phone is locked. The default WHEN_UNLOCKED throws
-// "User interaction is not allowed" there. iOS-only option, ignored on Android.
+// AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY lets iOS read the Keychain when the app wakes in the
+// background (push, background fetch) while the phone is locked. The default WHEN_UNLOCKED
+// throws "User interaction is not allowed" there. The THIS_DEVICE_ONLY variant keeps tokens
+// out of backup restores onto other devices. If the app never reads tokens in the
+// background, use WHEN_UNLOCKED_THIS_DEVICE_ONLY instead (stricter). iOS-only, ignored on Android.
 const OPTS: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
 };
 
 // Every request reads the access token. Hitting the native Keychain each time is slow,
