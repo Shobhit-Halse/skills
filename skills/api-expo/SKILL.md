@@ -98,7 +98,7 @@ Waiting over 5s during retries: subscribe with `setApiEventListener` and show "T
 
 ## Auth and tokens
 
-- Store tokens in `expo-secure-store` with `AFTER_FIRST_UNLOCK` (see `secureStorage.ts` for why). Never `AsyncStorage`.
+- Store tokens in `expo-secure-store` with `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` (see `secureStorage.ts` for why). Use `WHEN_UNLOCKED_THIS_DEVICE_ONLY` if nothing reads tokens in the background. Never `AsyncStorage`.
 - Never ship API secrets in the bundle. Anything in the app can be extracted. Proxy through your backend.
 - Do not store the user profile in SecureStore. Keep it in the query cache.
 - Login, register and other public calls must pass `skipAuth: true`. Otherwise a wrong password returns 401, triggers a refresh, and shows "Session expired".
@@ -161,7 +161,7 @@ setSessionExpiredHandler(() => { queryClient.clear(); router.replace("/login"); 
 ## Pre-ship checklist
 
 **Architecture:** all calls go through `apiRequest`. No raw `fetch` in components. Service layer typed. Every public endpoint uses `skipAuth`.
-**Auth:** tokens in SecureStore (`AFTER_FIRST_UNLOCK`). Session-expired handler registered. Logout clears tokens and the query cache. Login and token read verified on an Android release build.
+**Auth:** tokens in SecureStore (`*_THIS_DEVICE_ONLY` accessibility). Session-expired handler registered. Logout clears tokens and the query cache. Login and token read verified on an Android release build.
 **Retries:** `retry: false` in QueryClient. Every retried POST or PATCH carries an `Idempotency-Key` created once per user action. `signal` passed from every `queryFn`.
 **Timeouts and limits:** a `policy` chosen per endpoint category. Limiter sized from the real quota. Retry UI for waits over 5s. No raw 429 shown to users.
 **Offline:** NetInfo wired to `onlineManager`. Persisted mutations resume after restart if the app needs that. No queued GETs.
